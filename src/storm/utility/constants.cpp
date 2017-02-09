@@ -400,9 +400,59 @@ namespace storm {
             return RationalFunction(carl::rationalize<RationalNumber>(static_cast<carl::sint>(number)));
         }
 
+        /*!
+         * Convert string into a rational number.
+         * Supports fractions (e.g., 1/2 or 1/2/3), scientific notation (e.g., 1E-10, 1e-10)
+         * and fractional numbers (0.55512), as well as combinations of those.
+         *
+         * Throws std::invalid_argument for syntax problems. Division by zero and syntax
+         * problems for fractional numbers result in other types of exceptions.
+         *
+         * @param number the number string
+         * @return the corresponding rational number
+         */
         template<>
         RationalNumber convertNumber(std::string const& number) {
-            return carl::rationalize<RationalNumber>(number);
+            std::vector<std::string> fraction;
+            // first, split along /
+            boost::split(fraction, number, boost::is_any_of("/"));
+
+            if (fraction.size() > 1) {
+                // recursively handle fractions
+                RationalNumber x = convertNumber<RationalNumber>(fraction.at(0));
+                for (std::size_t i = 1; i < fraction.size(); i++) {
+                    RationalNumber y = convertNumber<RationalNumber>(fraction.at(i));
+                    x /= y;
+                }
+                return x;
+            }
+
+            // else case: no more fractions
+            std::vector<std::string> with_e;
+            boost::split(with_e, number, boost::is_any_of("eE"));
+
+            if (with_e.size() > 2) {
+                throw std::invalid_argument("More than one E in the string.");
+            } else if (with_e.size() > 1) {
+                RationalNumber base = convertNumber<RationalNumber>(with_e.at(0));
+                RationalNumber exponent = convertNumber<RationalNumber>(with_e.at(1));
+                if (!carl::isInteger(exponent)) {
+                    throw std::invalid_argument("Exponent has to be an integer");
+                }
+                carl::sint exponent_int = carl::toInt<carl::sint>(exponent);
+                RationalNumber x;
+                if (exponent_int < 0) {
+                    // carl does not yet handle negative exponents
+                    x = base * carl::pow(RationalNumber(10), (std::size_t)-exponent_int);
+                    x = carl::reciprocal(x);
+                } else {
+                    x = base * carl::pow(10, exponent_int);
+                }
+                return x;
+            } else {
+                // base case: some fractional integer, handled by carl
+                return carl::rationalize<RationalNumber>(number);
+            }
         }
 
         template<>
