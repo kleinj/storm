@@ -12,6 +12,8 @@
 
 #include "storm/solver/LinearEquationSolver.h"
 
+#include "storm/utility/RationalFunctionStatistics.h"
+
 #include "storm/modelchecker/results/ExplicitQuantitativeCheckResult.h"
 #include "storm/modelchecker/hints/ExplicitModelCheckerHint.h"
 #include "storm/modelchecker/prctl/helper/DsMpiUpperRewardBoundsComputer.h"
@@ -314,6 +316,9 @@ namespace storm {
                         // the accumulated probability of going from state i to some 'yes' state.
                         std::vector<ValueType> b = transitionMatrix.getConstrainedRowSumVector(maybeStates, statesWithProbability1);
                         
+                        // if ValueType is a rational function, do analysis
+                        RationalFunctionStatistics::analyzeSLE<ValueType>(submatrix, b);
+
                         // Now solve the created system of linear equations.
                         goal.restrictRelevantValues(maybeStates);
                         std::unique_ptr<storm::solver::LinearEquationSolver<ValueType>> solver = storm::solver::configureLinearEquationSolver(env, std::move(goal), linearEquationSolverFactory, std::move(submatrix));
@@ -472,6 +477,9 @@ namespace storm {
                             // go from x = A*x + b to (I-A)x = b.
                             submatrix.convertToEquationSystem();
                         }
+
+			// if ValueType is a rational function, do analysis
+                        RationalFunctionStatistics::analyzeSLE<ValueType>(submatrix, b);
 
                         // Create the solver.
                         goal.restrictRelevantValues(maybeStates);

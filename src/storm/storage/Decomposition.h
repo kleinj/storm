@@ -20,6 +20,8 @@ namespace storm {
             typedef BlockType block_type;
             typedef typename std::vector<block_type>::iterator iterator;
             typedef typename std::vector<block_type>::const_iterator const_iterator;
+            typedef typename std::vector<block_type>::reverse_iterator reverse_iterator;
+            typedef typename std::vector<block_type>::const_reverse_iterator const_reverse_iterator;
             
             /*!
              * Creates an empty decomposition.
@@ -98,6 +100,34 @@ namespace storm {
              */
             const_iterator end() const;
             
+            /*!
+             * Retrieves an iterator that points to the last block of this decomposition.
+             *
+             * @return An iterator that points to the last block of this decomposition.
+             */
+            reverse_iterator rbegin();
+
+            /*!
+             * Retrieves an iterator that points before the first block of this decomposition.
+             *
+             * @return An iterator that points before the first block of this decomposition.
+             */
+            reverse_iterator rend();
+
+            /*!
+             * Retrieves a const iterator that points to the last block of this decomposition.
+             *
+             * @return A const iterator that points to the last block of this decomposition.
+             */
+            const_reverse_iterator rbegin() const;
+
+            /*!
+             * Retrieves a const iterator that points before the first block of this decomposition.
+             *
+             * @return A const iterator that points before the first block of this decomposition.
+             */
+            const_reverse_iterator rend() const;
+
             /*!
              * Retrieves the block with the given index. If the index is out-of-bounds, an exception is thrown.
              *

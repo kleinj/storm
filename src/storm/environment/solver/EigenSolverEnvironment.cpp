@@ -16,6 +16,8 @@ namespace storm {
         restartThreshold = eigenSettings.getRestartIterationCount();
         maxIterationCount = eigenSettings.getMaximalIterationCount();
         precision = storm::utility::convertNumber<storm::RationalNumber>(eigenSettings.getPrecision());
+        topologicalOrdering = eigenSettings.isTopologicalOrderingSet();
+
     }
 
     EigenSolverEnvironment::~EigenSolverEnvironment() {
@@ -66,4 +68,13 @@ namespace storm {
     void EigenSolverEnvironment::setPrecision(storm::RationalNumber value) {
         precision = value;
     }
+
+    bool EigenSolverEnvironment::isTopologicalOrderingSet() const {
+        return topologicalOrdering;
+    }
+
+    void EigenSolverEnvironment::setTopologicalOrdering(bool value) {
+        topologicalOrdering = value;
+    }
+
 }

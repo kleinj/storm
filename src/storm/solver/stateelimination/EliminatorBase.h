@@ -21,6 +21,8 @@ namespace storm {
                 EliminatorBase(storm::storage::FlexibleSparseMatrix<ValueType>& matrix, storm::storage::FlexibleSparseMatrix<ValueType>& transposedMatrix);
                 virtual ~EliminatorBase() = default;
 
+                const storm::storage::FlexibleSparseMatrix<ValueType>& getMatrix();
+
                 void eliminate(uint64_t row, uint64_t column, bool clearRow);
                 
                 // Provide virtual methods that can be customized by subclasses to govern side-effect of the elimination.

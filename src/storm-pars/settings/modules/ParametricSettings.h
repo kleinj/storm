@@ -46,7 +46,7 @@ namespace storm {
                  * Retrieves whether instead of model checking, only the wellformedness constraints should be obtained.
                  */
                 bool onlyObtainConstraints() const;
-				
+		
                 const static std::string moduleName;
                 
             private:

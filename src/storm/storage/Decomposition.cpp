@@ -67,6 +67,26 @@ namespace storm {
         }
         
         template <typename BlockType>
+        typename Decomposition<BlockType>::reverse_iterator Decomposition<BlockType>::rbegin() {
+            return blocks.rbegin();
+        }
+
+        template <typename BlockType>
+        typename Decomposition<BlockType>::reverse_iterator Decomposition<BlockType>::rend() {
+            return blocks.rend();
+        }
+
+        template <typename BlockType>
+        typename Decomposition<BlockType>::const_reverse_iterator Decomposition<BlockType>::rbegin() const {
+            return blocks.rbegin();
+        }
+
+        template <typename BlockType>
+        typename Decomposition<BlockType>::const_reverse_iterator Decomposition<BlockType>::rend() const {
+            return blocks.rend();
+        }
+
+        template <typename BlockType>
         BlockType const& Decomposition<BlockType>::getBlock(uint_fast64_t index) const {
             return blocks.at(index);
         }

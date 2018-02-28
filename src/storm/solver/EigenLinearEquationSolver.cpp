@@ -3,40 +3,51 @@
 #include "storm/adapters/EigenAdapter.h"
 
 #include "storm/environment/solver/EigenSolverEnvironment.h"
+#include "storm/storage/StronglyConnectedComponentDecomposition.h"
+#include "storm/storage/TopologicalMatrixReordering.h"
+#include "storm/settings/SettingsManager.h"
+#include "storm/settings/modules/GeneralSettings.h"
+#include "storm/settings/modules/EigenEquationSolverSettings.h"
+#include "storm/settings/modules/CoreSettings.h"
 
+#include "storm/utility/NumericalTypes.h"
+#include "storm/utility/Stopwatch.h"
 #include "storm/utility/vector.h"
 #include "storm/utility/macros.h"
+#include "storm/utility/GCDLog.h"
 #include "storm/exceptions/InvalidSettingsException.h"
 
 namespace storm {
     namespace solver {
 
         template<typename ValueType>
-        EigenLinearEquationSolver<ValueType>::EigenLinearEquationSolver() {
+        EigenLinearEquationSolver<ValueType>::EigenLinearEquationSolver() : A(nullptr) {
             // Intentionally left empty.
         }
 
         template<typename ValueType>
-        EigenLinearEquationSolver<ValueType>::EigenLinearEquationSolver(storm::storage::SparseMatrix<ValueType> const& A) {
+        EigenLinearEquationSolver<ValueType>::EigenLinearEquationSolver(storm::storage::SparseMatrix<ValueType> const& A) : A(nullptr) {
             this->setMatrix(A);
         }
 
         template<typename ValueType>
-        EigenLinearEquationSolver<ValueType>::EigenLinearEquationSolver(storm::storage::SparseMatrix<ValueType>&& A) {
+        EigenLinearEquationSolver<ValueType>::EigenLinearEquationSolver(storm::storage::SparseMatrix<ValueType>&& A) : A(nullptr) {
             this->setMatrix(std::move(A));
         }
         
         template<typename ValueType>
         void EigenLinearEquationSolver<ValueType>::setMatrix(storm::storage::SparseMatrix<ValueType> const& A) {
+            this->A = &A;
+            localA.reset();
             eigenA = storm::adapters::EigenAdapter::toEigenSparseMatrix<ValueType>(A);
             this->clearCache();
         }
         
         template<typename ValueType>
         void EigenLinearEquationSolver<ValueType>::setMatrix(storm::storage::SparseMatrix<ValueType>&& A) {
-            // Take ownership of the matrix so it is destroyed after we have translated it to Eigen's format.
-            storm::storage::SparseMatrix<ValueType> localA(std::move(A));
-            this->setMatrix(localA);
+            localA = std::make_unique<storm::storage::SparseMatrix<ValueType>>(std::move(A));
+            this->A = localA.get();
+            eigenA = storm::adapters::EigenAdapter::toEigenSparseMatrix<ValueType>(*localA);
             this->clearCache();
         }
         
@@ -62,47 +73,113 @@ namespace storm {
             }
             return method;
         }
-        
+
+        template<typename ValueType>
+        bool EigenLinearEquationSolver<ValueType>::internalSolveEquations(Environment const& env, std::vector<ValueType>& x, std::vector<ValueType> const& b) const {
+            bool topologicalOrdering = env.solver().eigen().isTopologicalOrderingSet();
+
+            if (topologicalOrdering) {
+                STORM_LOG_INFO("Obtaining SCC decomposition and topological ordering...");
+
+                storm::utility::Stopwatch timerSCC(true);
+                typedef storm::storage::StronglyConnectedComponentDecomposition<ValueType> SCCDecomposition;
+                SCCDecomposition sccs(*A);
+                auto sorted = storm::storage::TopologicalMatrixReordering::topologicallySorted(*A, sccs);
+
+                auto& sortedMatrix = std::get<0>(sorted);
+                const auto& sccInfo = *std::get<1>(sorted).sccInfo;
+                const auto& permutation = *std::get<1>(sorted).permutation;
+
+                std::vector<ValueType> b_(b);
+                permutation.permute(b_);
+
+                timerSCC.stop();
+                STORM_LOG_INFO("SCC decomposition and topological ordering: " << timerSCC);
+                STORM_LOG_INFO(sccInfo.getStatistics());
+
+                auto sortedEigenA = storm::adapters::EigenAdapter::toEigenSparseMatrix<ValueType>(sortedMatrix);
+
+                bool rv = internalSolve(env, *sortedEigenA, x, b_);
+
+                STORM_LOG_INFO("Reorder solution vector to correspond to model ordering...");
+                // un-permutate solution vector
+                permutation.permuteInv(x);
+
+                return rv;
+            } else {
+                return internalSolve(env, *eigenA, x, b);
+            }
+        }
+
         #ifdef STORM_HAVE_CARL
         // Specialization for storm::RationalNumber
         template<>
-        bool EigenLinearEquationSolver<storm::RationalNumber>::internalSolveEquations(Environment const& env, std::vector<storm::RationalNumber>& x, std::vector<storm::RationalNumber> const& b) const {
+        bool EigenLinearEquationSolver<storm::RationalNumber>::internalSolve(Environment const& env, StormEigen::SparseMatrix<storm::RationalNumber>& eigenMatrix, std::vector<storm::RationalNumber>& x, std::vector<storm::RationalNumber> const& b) const {
             auto solutionMethod = getMethod(env, true);
             STORM_LOG_WARN_COND(solutionMethod == EigenLinearEquationSolverMethod::SparseLU, "Switching method to SparseLU.");
             STORM_LOG_INFO("Solving linear equation system (" << x.size() << " rows) with with rational numbers using LU factorization (Eigen library).");
-            
+
+#ifdef STORM_HAVE_GCD_LOG
+            storm::utility::GCDLog::enable();
+	    STORM_LOG_INFO("Enabling GCD logging...\n");
+#endif
+	    
             // Map the input vectors to Eigen's format.
             auto eigenX = StormEigen::Matrix<storm::RationalNumber, StormEigen::Dynamic, 1>::Map(x.data(), x.size());
             auto eigenB = StormEigen::Matrix<storm::RationalNumber, StormEigen::Dynamic, 1>::Map(b.data(), b.size());
             
             StormEigen::SparseLU<StormEigen::SparseMatrix<storm::RationalNumber>, StormEigen::COLAMDOrdering<int>> solver;
-            solver.compute(*eigenA);
+            solver.compute(eigenMatrix);
             solver._solve_impl(eigenB, eigenX);
-            
+
+#ifdef STORM_HAVE_GCD_LOG
+            storm::utility::GCDLog::disable();
+	    STORM_LOG_INFO("Disabling GCD logging...\n");
+#endif
+	    
             return solver.info() == StormEigen::ComputationInfo::Success;
         }
         
         // Specialization for storm::RationalFunction
         template<>
-        bool EigenLinearEquationSolver<storm::RationalFunction>::internalSolveEquations(Environment const& env, std::vector<storm::RationalFunction>& x, std::vector<storm::RationalFunction> const& b) const {
+        bool EigenLinearEquationSolver<storm::RationalFunction>::internalSolve(Environment const& env, StormEigen::SparseMatrix<storm::RationalFunction>& eigenMatrix, std::vector<storm::RationalFunction>& x, std::vector<storm::RationalFunction> const& b) const {
             auto solutionMethod = getMethod(env, true);
             STORM_LOG_WARN_COND(solutionMethod == EigenLinearEquationSolverMethod::SparseLU, "Switching method to SparseLU.");
             STORM_LOG_INFO("Solving linear equation system (" << x.size() << " rows) with rational functions using LU factorization (Eigen library).");
 
+#ifdef STORM_HAVE_GCD_LOG
+            storm::utility::GCDLog::enable();
+	    STORM_LOG_INFO("Enabling GCD logging...\n");
+#endif	    
             // Map the input vectors to Eigen's format.
             auto eigenX = StormEigen::Matrix<storm::RationalFunction, StormEigen::Dynamic, 1>::Map(x.data(), x.size());
             auto eigenB = StormEigen::Matrix<storm::RationalFunction, StormEigen::Dynamic, 1>::Map(b.data(), b.size());
-            
+
+            storm::utility::Stopwatch timer(true);
+
             StormEigen::SparseLU<StormEigen::SparseMatrix<storm::RationalFunction>, StormEigen::COLAMDOrdering<int>> solver;
-            solver.compute(*eigenA);
+            solver.compute(eigenMatrix);
             solver._solve_impl(eigenB, eigenX);
+
+#ifdef STORM_HAVE_GCD_LOG
+            storm::utility::GCDLog::disable();
+	    STORM_LOG_INFO("Disabling GCD logging...\n");
+#endif
+
+            timer.stop();
+            STORM_LOG_INFO("Time for parametric computation: " << timer);
+
+            if (storm::settings::getModule<storm::settings::modules::CoreSettings>().isResultStatsSet()) {
+                std::cout << storm::utility::NumericalTypes::getStats(x);
+            }
+
             return solver.info() == StormEigen::ComputationInfo::Success;
         }
 #endif
 
         
         template<typename ValueType>
-        bool EigenLinearEquationSolver<ValueType>::internalSolveEquations(Environment const& env, std::vector<ValueType>& x, std::vector<ValueType> const& b) const {
+        bool EigenLinearEquationSolver<ValueType>::internalSolve(Environment const& env, StormEigen::SparseMatrix<ValueType>& eigenMatrix, std::vector<ValueType>& x, std::vector<ValueType> const &b) const {
             // Map the input vectors to Eigen's format.
             auto eigenX = StormEigen::Matrix<ValueType, StormEigen::Dynamic, 1>::Map(x.data(), x.size());
             auto eigenB = StormEigen::Matrix<ValueType, StormEigen::Dynamic, 1>::Map(b.data(), b.size());
@@ -111,7 +188,7 @@ namespace storm {
             if (solutionMethod == EigenLinearEquationSolverMethod::SparseLU) {
                 STORM_LOG_INFO("Solving linear equation system (" << x.size() << " rows) with sparse LU factorization (Eigen library).");
                 StormEigen::SparseLU<StormEigen::SparseMatrix<ValueType>, StormEigen::COLAMDOrdering<int>> solver;
-                solver.compute(*this->eigenA);
+                solver.compute(eigenMatrix);
                 solver._solve_impl(eigenB, eigenX);
             } else {
                 bool converged = false;
@@ -125,7 +202,7 @@ namespace storm {
                         STORM_LOG_INFO("Solving linear equation system (" << x.size() << " rows) with BiCGSTAB with Ilu preconditioner (Eigen library).");
 
                         StormEigen::BiCGSTAB<StormEigen::SparseMatrix<ValueType>, StormEigen::IncompleteLUT<ValueType>> solver;
-                        solver.compute(*this->eigenA);
+                        solver.compute(eigenMatrix);
                         solver.setTolerance(precision);
                         solver.setMaxIterations(maxIter);
                         eigenX = solver.solveWithGuess(eigenB, eigenX);
@@ -137,7 +214,7 @@ namespace storm {
                         StormEigen::BiCGSTAB<StormEigen::SparseMatrix<ValueType>, StormEigen::DiagonalPreconditioner<ValueType>> solver;
                         solver.setTolerance(precision);
                         solver.setMaxIterations(maxIter);
-                        solver.compute(*this->eigenA);
+                        solver.compute(eigenMatrix);
                         eigenX = solver.solveWithGuess(eigenB, eigenX);
                         converged = solver.info() == StormEigen::ComputationInfo::Success;
                         numberOfIterations = solver.iterations();
@@ -147,7 +224,7 @@ namespace storm {
                         StormEigen::BiCGSTAB<StormEigen::SparseMatrix<ValueType>, StormEigen::IdentityPreconditioner> solver;
                         solver.setTolerance(precision);
                         solver.setMaxIterations(maxIter);
-                        solver.compute(*this->eigenA);
+                        solver.compute(eigenMatrix);
                         eigenX = solver.solveWithGuess(eigenB, eigenX);
                         numberOfIterations = solver.iterations();
                         converged = solver.info() == StormEigen::ComputationInfo::Success;
@@ -160,7 +237,7 @@ namespace storm {
                         solver.setTolerance(precision);
                         solver.setMaxIterations(maxIter);
                         solver.set_restart(restartThreshold);
-                        solver.compute(*this->eigenA);
+                        solver.compute(eigenMatrix);
                         eigenX = solver.solveWithGuess(eigenB, eigenX);
                         converged = solver.info() == StormEigen::ComputationInfo::Success;
                         numberOfIterations = solver.iterations();
@@ -171,7 +248,7 @@ namespace storm {
                         solver.setTolerance(precision);
                         solver.setMaxIterations(maxIter);
                         solver.set_restart(restartThreshold);
-                        solver.compute(*this->eigenA);
+                        solver.compute(eigenMatrix);
                         eigenX = solver.solveWithGuess(eigenB, eigenX);
                         converged = solver.info() == StormEigen::ComputationInfo::Success;
                         numberOfIterations = solver.iterations();
@@ -182,7 +259,7 @@ namespace storm {
                         solver.setTolerance(precision);
                         solver.setMaxIterations(maxIter);
                         solver.set_restart(restartThreshold);
-                        solver.compute(*this->eigenA);
+                        solver.compute(eigenMatrix);
                         eigenX = solver.solveWithGuess(eigenB, eigenX);
                         converged = solver.info() == StormEigen::ComputationInfo::Success;
                         numberOfIterations = solver.iterations();
@@ -195,7 +272,7 @@ namespace storm {
                         solver.setTolerance(precision);
                         solver.setMaxIterations(maxIter);
                         solver.set_restart(restartThreshold);
-                        solver.compute(*this->eigenA);
+                        solver.compute(eigenMatrix);
                         eigenX = solver.solveWithGuess(eigenB, eigenX);
                         converged = solver.info() == StormEigen::ComputationInfo::Success;
                         numberOfIterations = solver.iterations();
@@ -206,7 +283,7 @@ namespace storm {
                         solver.setTolerance(precision);
                         solver.setMaxIterations(maxIter);
                         solver.set_restart(restartThreshold);
-                        solver.compute(*this->eigenA);
+                        solver.compute(eigenMatrix);
                         eigenX = solver.solveWithGuess(eigenB, eigenX);
                         converged = solver.info() == StormEigen::ComputationInfo::Success;
                         numberOfIterations = solver.iterations();
@@ -217,7 +294,7 @@ namespace storm {
                         solver.setTolerance(precision);
                         solver.setMaxIterations(maxIter);
                         solver.set_restart(restartThreshold);
-                        solver.compute(*this->eigenA);
+                        solver.compute(eigenMatrix);
                         eigenX = solver.solveWithGuess(eigenB, eigenX);
                         converged = solver.info() == StormEigen::ComputationInfo::Success;
                         numberOfIterations = solver.iterations();
@@ -282,7 +359,7 @@ namespace storm {
         uint64_t EigenLinearEquationSolver<ValueType>::getMatrixColumnCount() const {
             return eigenA->cols();
         }
-        
+
         template<typename ValueType>
         std::unique_ptr<storm::solver::LinearEquationSolver<ValueType>> EigenLinearEquationSolverFactory<ValueType>::create(Environment const& env, LinearEquationSolverTask const& task) const {
             return std::make_unique<storm::solver::EigenLinearEquationSolver<ValueType>>();

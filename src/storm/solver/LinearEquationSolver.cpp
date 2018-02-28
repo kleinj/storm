@@ -7,6 +7,7 @@
 #include "storm/solver/NativeLinearEquationSolver.h"
 #include "storm/solver/EigenLinearEquationSolver.h"
 #include "storm/solver/EliminationLinearEquationSolver.h"
+#include "storm/solver/GaussEliminationLinearEquationSolver.h"
 
 #include "storm/utility/vector.h"
 
@@ -170,7 +171,7 @@ namespace storm {
             EquationSolverType type = env.solver().getLinearEquationSolverType();
             
              // Adjust the solver type if it is not supported by this value type
-            if (type == EquationSolverType::Gmmxx) {
+            if (type == EquationSolverType::Gmmxx || type == EquationSolverType::GaussElimination) {
                     type = EquationSolverType::Eigen;
                     STORM_LOG_INFO("Selecting '" + toString(type) + "' as the linear equation solver since the selected one does not support exact computations.");
             }
@@ -198,6 +199,7 @@ namespace storm {
             switch (type) {
                 case EquationSolverType::Eigen: return std::make_unique<EigenLinearEquationSolver<storm::RationalFunction>>();
                 case EquationSolverType::Elimination: return std::make_unique<EliminationLinearEquationSolver<storm::RationalFunction>>();
+                case EquationSolverType::GaussElimination: return std::make_unique<GaussEliminationLinearEquationSolver<storm::RationalFunction>>();
                 default:
                     STORM_LOG_THROW(false, storm::exceptions::InvalidEnvironmentException, "Unknown solver type.");
                     return nullptr;
@@ -223,6 +225,7 @@ namespace storm {
                 case EquationSolverType::Native: return std::make_unique<NativeLinearEquationSolver<ValueType>>();
                 case EquationSolverType::Eigen: return std::make_unique<EigenLinearEquationSolver<ValueType>>();
                 case EquationSolverType::Elimination: return std::make_unique<EliminationLinearEquationSolver<ValueType>>();
+                case EquationSolverType::GaussElimination: return std::make_unique<GaussEliminationLinearEquationSolver<ValueType>>();
                 default:
                     STORM_LOG_THROW(false, storm::exceptions::InvalidEnvironmentException, "Unknown solver type.");
                     return nullptr;

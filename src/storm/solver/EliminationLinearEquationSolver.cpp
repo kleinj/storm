@@ -1,17 +1,24 @@
 #include "storm/solver/EliminationLinearEquationSolver.h"
 
-#include <numeric>
 
+#include <numeric>
+#include "storm/storage/HTMLMatrixExport.h"
+#include "storm/storage/StronglyConnectedComponentDecomposition.h"
+#include "storm/storage/TopologicalMatrixReordering.h"
 #include "storm/settings/SettingsManager.h"
 #include "storm/settings/modules/EliminationSettings.h"
+// #include "storm/settings/modules/ParametricSettings.h"
+#include "storm/settings/modules/CoreSettings.h"
 
 #include "storm/solver/stateelimination/StatePriorityQueue.h"
 #include "storm/solver/stateelimination/PrioritizedStateEliminator.h"
-
+#include "storm/utility/NumericalTypes.h"
+#include "storm/utility/Stopwatch.h"
 #include "storm/utility/graph.h"
 #include "storm/utility/macros.h"
 #include "storm/utility/vector.h"
 #include "storm/utility/stateelimination.h"
+#include "storm/utility/GCDLog.h"
 
 namespace storm {
     namespace solver {
@@ -47,7 +54,7 @@ namespace storm {
             this->A = localA.get();
             this->clearCache();
         }
-        
+
         template<typename ValueType>
         bool EliminationLinearEquationSolver<ValueType>::internalSolveEquations(Environment const& env, std::vector<ValueType>& x, std::vector<ValueType> const& b) const {
             // FIXME: This solver will not work for all input systems. More concretely, the current implementation will
@@ -56,16 +63,98 @@ namespace storm {
             
             STORM_LOG_INFO("Solving linear equation system (" << x.size() << " rows) with elimination");
 
+            std::shared_ptr<storm::storage::HTMLMatrixExport> htmlExport;
+            if (storm::settings::getModule<storm::settings::modules::EliminationSettings>().isExportHTMLSet()) {
+                std::string filename = storm::settings::getModule<storm::settings::modules::EliminationSettings>().getExportHTMLFilename();
+                STORM_LOG_INFO("Logging state elimination steps to " << filename);
+                htmlExport.reset(new storm::storage::HTMLMatrixExport(filename));
+                htmlExport->setPrintComplexityOption(storm::settings::getModule<storm::settings::modules::EliminationSettings>().isExportHTMLComplexitySet());
+                htmlExport->setPrintStatsOption(storm::settings::getModule<storm::settings::modules::EliminationSettings>().isExportHTMLStatsSet());
+
+                htmlExport->printHeader("State Elimination", htmlExport->getStandardCSS());
+                htmlExport->print(std::string("<p>Order: ")
+                     + storm::settings::getModule<storm::settings::modules::EliminationSettings>().getEliminationOrderAsString()
+                     + ", Method: " + storm::settings::getModule<storm::settings::modules::EliminationSettings>().getEliminationMethodAsString()
+                     + "</p>\n");
+            }
+
             storm::storage::SparseMatrix<ValueType> const& transitionMatrix = localA ? *localA : *A;
-            storm::storage::SparseMatrix<ValueType> backwardTransitions = transitionMatrix.transpose();
-            
             // Initialize the solution to the right-hand side of the equation system.
             x = b;
-            
+
+            bool topologicalOrdering = storm::settings::getModule<storm::settings::modules::EliminationSettings>().isTopologicalOrderingSet();
+
+            if (topologicalOrdering) {
+                if (htmlExport) {
+                    htmlExport->slideBegin();
+                    htmlExport->print("<h2>Unsorted (before topological ordering)</h2>");
+                    htmlExport->printMatrix(transitionMatrix, x);
+                    htmlExport->print("<hr>");
+                    htmlExport->slideEnd();
+                }
+
+                STORM_LOG_INFO("Obtaining SCC decomposition and topological ordering...");
+
+                storm::utility::Stopwatch timerSCC(true);
+                typedef storm::storage::StronglyConnectedComponentDecomposition<ValueType> SCCDecomposition;
+                SCCDecomposition sccs(transitionMatrix);
+                auto sorted = storm::storage::TopologicalMatrixReordering::topologicallySorted(transitionMatrix, sccs);
+
+                auto& sortedMatrix = std::get<0>(sorted);
+                const auto& sccInfo = *std::get<1>(sorted).sccInfo;
+                const auto& permutation = *std::get<1>(sorted).permutation;
+
+                permutation.permute(x);
+                std::vector<ValueType> b_(b);
+                permutation.permute(b_);
+
+                timerSCC.stop();
+                STORM_LOG_INFO("SCC decomposition and topological ordering: " << timerSCC);
+                STORM_LOG_INFO(sccInfo.getStatistics());
+
+                if (htmlExport) {
+                    // set scc info for sortedMatrix
+                    htmlExport->setSCCInfo(sccInfo);
+                }
+
+                bool rv = internalSolve(env, sortedMatrix, b_, x, htmlExport);
+
+                STORM_LOG_INFO("Reorder solution vector to correspond to model ordering...");
+                // un-permutate solution vector
+                permutation.permuteInv(x);
+
+                if (htmlExport) {
+                    htmlExport->resetSCCInfo();
+                    htmlExport->slideBegin();
+                    htmlExport->print("<h2>Solution (after reverting topological ordering)</h2>");
+                    htmlExport->printVector(x);
+                    htmlExport->slideEnd();
+                }
+
+                return rv;
+            } else {
+                return internalSolve(env, transitionMatrix, b, x, htmlExport);
+            }
+        }
+
+        template <typename ValueType>
+        bool EliminationLinearEquationSolver<ValueType>::internalSolve(Environment const& env, const storm::storage::SparseMatrix<ValueType>& transitionMatrix, const std::vector<ValueType>& b, std::vector<ValueType>& x, std::shared_ptr<storm::storage::HTMLMatrixExport> htmlExport) const {
+            storm::storage::SparseMatrix<ValueType> backwardTransitions = transitionMatrix.transpose();
+
             // Translate the matrix and its transpose into the flexible format.
             storm::storage::FlexibleSparseMatrix<ValueType> flexibleMatrix(transitionMatrix, false);
             storm::storage::FlexibleSparseMatrix<ValueType> flexibleBackwardTransitions(backwardTransitions, true);
-            
+
+            if (htmlExport) {
+                htmlExport->slideBegin();
+                htmlExport->print("<h2>Initial</h2>");
+                htmlExport->printMatrix(flexibleMatrix, x);
+                htmlExport->print("<hr>");
+                htmlExport->slideEnd();
+            }
+
+            storm::utility::Stopwatch timer(true);
+
             boost::optional<std::vector<uint_fast64_t>> distanceBasedPriorities;
             
             // TODO: get the order from the environment
@@ -81,6 +170,12 @@ namespace storm {
             
             std::shared_ptr<StatePriorityQueue> priorityQueue = createStatePriorityQueue<ValueType>(distanceBasedPriorities, flexibleMatrix, flexibleBackwardTransitions, b, storm::storage::BitVector(x.size(), true));
             
+#ifdef STORM_HAVE_GCD_LOG
+            storm::utility::GCDLog::enable();
+	    STORM_LOG_INFO("Enabling GCD logging...\n");
+#endif
+
+
             // Create a state eliminator to perform the actual elimination.
             PrioritizedStateEliminator<ValueType> eliminator(flexibleMatrix, flexibleBackwardTransitions, priorityQueue, x);
             
@@ -88,8 +183,35 @@ namespace storm {
             while (priorityQueue->hasNext()) {
                 auto state = priorityQueue->pop();
                 eliminator.eliminateState(state, false);
+
+                if (htmlExport) {
+                    htmlExport->slideBegin();
+                    htmlExport->print("<h2>After elimination of state " + std::to_string(state) +"</h2>");
+                    htmlExport->printMatrix(flexibleMatrix, x, boost::none, state);
+                    htmlExport->print("<hr>");
+                    htmlExport->slideEnd();
+                }
             }
             
+#ifdef STORM_HAVE_GCD_LOG
+            storm::utility::GCDLog::disable();
+	    STORM_LOG_INFO("Disabling GCD logging...\n");
+#endif
+
+            timer.stop();
+            STORM_LOG_INFO("Time for parametric computation: " << timer);
+
+            if (storm::settings::getModule<storm::settings::modules::CoreSettings>().isResultStatsSet()) {
+                std::cout << storm::utility::NumericalTypes::getStats(x);
+            }
+
+            if (htmlExport) {
+                htmlExport->slideBegin();
+                htmlExport->print("<h2>Solution</h2>");
+                htmlExport->printVector(x);
+                htmlExport->slideEnd();
+            }
+
             return true;
         }
         

@@ -973,9 +973,29 @@ namespace storm {
         template storm::storage::MatrixEntry<storm::storage::sparse::state_type, RationalFunction>& simplify(storm::storage::MatrixEntry<storm::storage::sparse::state_type, RationalFunction>& matrixEntry);
         template storm::storage::MatrixEntry<storm::storage::sparse::state_type, RationalFunction>&& simplify(storm::storage::MatrixEntry<storm::storage::sparse::state_type, RationalFunction>&& matrixEntry);
 
+        template PlainRationalFunction one();
+        template PlainRationalFunction zero();
+        template bool isOne(PlainRationalFunction const& value);
+        template bool isZero(PlainRationalFunction const& value);
+
+        template PlainRationalFunctionNoSimplify one();
+        template PlainRationalFunctionNoSimplify zero();
+        template bool isOne(PlainRationalFunctionNoSimplify const& value);
+        template bool isZero(PlainRationalFunctionNoSimplify const& value);
+
+        template FactorizedRationalFunctionNoSimplify one();
+        template FactorizedRationalFunctionNoSimplify zero();
+        template bool isOne(FactorizedRationalFunctionNoSimplify const& value);
+        template bool isZero(FactorizedRationalFunctionNoSimplify const& value);
+
+
         // Instantiations for polynomials.
         template Polynomial one();
         template Polynomial zero();
+        template RawPolynomial one();
+        template RawPolynomial zero();
+        template bool isOne(RawPolynomial const& value);
+        template bool isZero(RawPolynomial const& value);
 
         // Instantiations for intervals.
         template Interval one();

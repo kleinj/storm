@@ -55,7 +55,12 @@ namespace storm {
              * Start stopwatch (again) and start measuring time.
              */
             void start();
-            
+
+            /*!
+             * Restart stopwatch (reset) and start measuring time.
+             */
+            void restart();
+
             /*!
              * Reset the stopwatch.
              */

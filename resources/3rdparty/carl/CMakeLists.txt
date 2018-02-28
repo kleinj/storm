@@ -6,9 +6,17 @@ option(STORM_3RDPARTY_BINARY_DIR "3rd party bin dir")
 
 message(STORM_3RDPARTY_BINARY_DIR: ${STORM_3RDPARTY_BINARY_DIR})
 
+if (CARL_GCD_LOG)
+  SET(CARL_GIT_REPO "https://github.com/kleinj/carl")
+  SET(CARL_GIT_TAG  "17.12-with-gcd-stats")
+else()
+  SET(CARL_GIT_REPO "https://github.com/smtrat/carl")
+  SET(CARL_GIT_TAG  "17.12")
+endif()
+
 ExternalProject_Add(carl-config
-	GIT_REPOSITORY https://github.com/smtrat/carl
-	GIT_TAG 17.12
+	GIT_REPOSITORY ${CARL_GIT_REPO}
+	GIT_TAG ${CARL_GIT_TAG}
 	PREFIX here
 	SOURCE_DIR source_dir
 	BINARY_DIR ${STORM_3RDPARTY_BINARY_DIR}/carl

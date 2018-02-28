@@ -31,6 +31,11 @@ namespace storm {
             accumulatedTime += std::chrono::high_resolution_clock::now() - startOfCurrentMeasurement;
         }
         
+        void Stopwatch::restart() {
+            reset();
+            start();
+        }
+
         void Stopwatch::start() {
             STORM_LOG_WARN_COND(stopped, "Stopwatch is already running.");
             stopped = false;

@@ -26,6 +26,7 @@ namespace storm {
 
         protected:
             virtual bool internalSolveEquations(Environment const& env, std::vector<ValueType>& x, std::vector<ValueType> const& b) const override;
+            virtual bool internalSolve(Environment const& env, StormEigen::SparseMatrix<ValueType>& eigenMatrix, std::vector<ValueType>& x, std::vector<ValueType> const &b) const;
 
         private:
             EigenLinearEquationSolverMethod getMethod(Environment const& env, bool isExactMode) const;
@@ -36,6 +37,13 @@ namespace storm {
             // The (eigen) matrix associated with this equation solver.
             std::unique_ptr<StormEigen::SparseMatrix<ValueType>> eigenA;
 
+            // If the solver takes posession of the matrix, we store the moved matrix in this member, so it gets deleted
+            // when the solver is destructed.
+            std::unique_ptr<storm::storage::SparseMatrix<ValueType>> localA;
+
+            // A pointer to the original sparse matrix given to this solver. If the solver takes posession of the matrix
+            // the pointer refers to localA.
+            storm::storage::SparseMatrix<ValueType> const* A;
         };
         
         template<typename ValueType>

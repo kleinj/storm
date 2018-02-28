@@ -149,6 +149,15 @@ namespace storm {
                  */
                 void setEngine(Engine);
 
+                /*!
+                 * Retrieves whether canonical results should be printed.
+                 *
+                 * @return True iff the option was set.
+                 */
+                bool isCanonicalResultsSet() const;
+
+		bool isResultStatsSet() const;
+		
                 bool check() const override;
                 void finalize() override;
 
@@ -174,6 +183,8 @@ namespace storm {
                 static const std::string intelTbbOptionName;
                 static const std::string intelTbbOptionShortName;
                 static const std::string cudaOptionName;
+                static const std::string canonicalResultsOptionName;
+		static const std::string resultStatsOptionName;
             };
 
         } // namespace modules

@@ -25,6 +25,8 @@ namespace storm {
         void setMaximalNumberOfIterations(uint64_t value);
         storm::RationalNumber const& getPrecision() const;
         void setPrecision(storm::RationalNumber value);
+        bool isTopologicalOrderingSet() const;
+        void setTopologicalOrdering(bool value);
         
     private:
         storm::solver::EigenLinearEquationSolverMethod method;
@@ -33,6 +35,7 @@ namespace storm {
         uint64_t restartThreshold;
         uint64_t maxIterationCount;
         storm::RationalNumber precision;
+        bool topologicalOrdering;
         
     };
 }

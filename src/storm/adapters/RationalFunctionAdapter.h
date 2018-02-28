@@ -57,5 +57,10 @@ namespace storm {
     
     typedef carl::RationalFunction<Polynomial, true> RationalFunction;
     typedef carl::Interval<double> Interval;
+
+    typedef carl::RationalFunction<RawPolynomial, true> PlainRationalFunction;
+    typedef carl::RationalFunction<RawPolynomial, false> PlainRationalFunctionNoSimplify;
+    typedef carl::RationalFunction<Polynomial, false> FactorizedRationalFunctionNoSimplify;
+
 }
 

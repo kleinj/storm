@@ -9,6 +9,12 @@
 #include "storm/exceptions/InvalidAccessException.h"
 #include "storm/adapters/RationalFunctionAdapter.h"
 
+#include "storm/settings/SettingsManager.h"
+#include "storm/settings/modules/CoreSettings.h"
+
+#include "storm/utility/CanonicalResult.h"
+
+
 
 namespace storm {
     namespace modelchecker {
@@ -271,6 +277,13 @@ namespace storm {
                 } else {
                     if (valuesAsMap.size() == 1) {
                         print(out, valuesAsMap.begin()->second);
+
+                        if (storm::settings::getModule<storm::settings::modules::CoreSettings>().isCanonicalResultsSet()) {
+                            out << "\nCanonical result:\n";
+                            std::string canonical = storm::utility::CanonicalResult::getCanonicalString(valuesAsMap.begin()->second);
+                            out << canonical << "\n";
+                            out << "Hash: " << storm::utility::CanonicalResult::getHash(canonical) << "\n";
+                        }
                     } else {
                         out << "{";
                         bool first = true;

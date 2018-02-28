@@ -4,6 +4,8 @@ Storm - A Modern Probabilistic Model Checker
 
 For more instructions, check out the documentation found in [Getting Started](http://www.stormchecker.org/getting-started.html).
 
+Note: This is an extension of Storm 1.2.1, with support for fraction-free Gaussian elimination for parametric model checking.
+
 
 Benchmarks
 ----------------------------

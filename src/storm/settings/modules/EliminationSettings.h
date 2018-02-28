@@ -33,6 +33,7 @@ namespace storm {
                  * @return The selected elimination method.
                  */
                 EliminationMethod getEliminationMethod() const;
+                std::string getEliminationMethodAsString() const;
                 
                 /*!
                  * Retrieves the selected elimination order.
@@ -40,6 +41,7 @@ namespace storm {
                  * @return The selected elimination order.
                  */
                 EliminationOrder getEliminationOrder() const;
+                std::string getEliminationOrderAsString() const;
                 
                 /*!
                  * Retrieves whether the option to eliminate entry states in the very end is set.
@@ -61,7 +63,14 @@ namespace storm {
                  * @return True iff the option was set.
                  */
                 bool isUseDedicatedModelCheckerSet() const;
-				
+
+                bool isTopologicalOrderingSet() const;
+
+                bool isExportHTMLSet() const;
+                std::string getExportHTMLFilename() const;
+                bool isExportHTMLComplexitySet() const;
+                bool isExportHTMLStatsSet() const;
+
                 const static std::string moduleName;
                 
             private:
@@ -70,6 +79,10 @@ namespace storm {
                 const static std::string entryStatesLastOptionName;
                 const static std::string maximalSccSizeOptionName;
                 const static std::string useDedicatedModelCheckerOptionName;
+                const static std::string topologicalOrderingOptionName;
+                const static std::string exportHTMLOptionName;
+                const static std::string exportHTMLComplexityOptionName;
+                const static std::string exportHTMLStatsOptionName;
             };
             
         } // namespace modules

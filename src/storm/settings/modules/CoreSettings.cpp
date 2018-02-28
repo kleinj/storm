@@ -34,6 +34,8 @@ namespace storm {
             const std::string CoreSettings::cudaOptionName = "cuda";
             const std::string CoreSettings::intelTbbOptionName = "enable-tbb";
             const std::string CoreSettings::intelTbbOptionShortName = "tbb";
+            const std::string CoreSettings::canonicalResultsOptionName = "canonicalresults";
+            const std::string CoreSettings::resultStatsOptionName = "resultstats";
             
             CoreSettings::CoreSettings() : ModuleSettings(moduleName), engine(CoreSettings::Engine::Sparse) {
                 this->addOption(storm::settings::OptionBuilder(moduleName, counterexampleOptionName, false, "Generates a counterexample for the given PRCTL formulas if not satisfied by the model.").setShortName(counterexampleOptionShortName).build());
@@ -43,7 +45,7 @@ namespace storm {
                 this->addOption(storm::settings::OptionBuilder(moduleName, engineOptionName, false, "Sets which engine is used for model building and model checking.").setShortName(engineOptionShortName)
                                 .addArgument(storm::settings::ArgumentBuilder::createStringArgument("name", "The name of the engine to use.").addValidatorString(ArgumentValidatorFactory::createMultipleChoiceValidator(engines)).setDefaultValueString("sparse").build()).build());
                 
-                std::vector<std::string> linearEquationSolver = {"gmm++", "native", "eigen", "elimination"};
+                std::vector<std::string> linearEquationSolver = {"gmm++", "native", "eigen", "elimination", "gauss"};
                 this->addOption(storm::settings::OptionBuilder(moduleName, eqSolverOptionName, false, "Sets which solver is preferred for solving systems of linear equations.")
                                 .addArgument(storm::settings::ArgumentBuilder::createStringArgument("name", "The name of the solver to prefer.").addValidatorString(ArgumentValidatorFactory::createMultipleChoiceValidator(linearEquationSolver)).setDefaultValueString("gmm++").build()).build());
                 
@@ -62,6 +64,8 @@ namespace storm {
                 
                 this->addOption(storm::settings::OptionBuilder(moduleName, cudaOptionName, false, "Sets whether to use CUDA.").build());
                 this->addOption(storm::settings::OptionBuilder(moduleName, intelTbbOptionName, false, "Sets whether to use Intel TBB (if Storm was built with support for TBB).").setShortName(intelTbbOptionShortName).build());
+                this->addOption(storm::settings::OptionBuilder(moduleName, canonicalResultsOptionName, false, "Sets whether to canonical results should be printed.").build());
+		this->addOption(storm::settings::OptionBuilder(moduleName, resultStatsOptionName, true, "Print complexity information for the parametric results.").build());
             }
 
             bool CoreSettings::isCounterexampleSet() const {
@@ -86,6 +90,8 @@ namespace storm {
                     return storm::solver::EquationSolverType::Eigen;
                 } else if (equationSolverName == "elimination") {
                     return storm::solver::EquationSolverType::Elimination;
+                } else if (equationSolverName == "gauss") {
+                    return storm::solver::EquationSolverType::GaussElimination;
                 }
                 STORM_LOG_THROW(false, storm::exceptions::IllegalArgumentValueException, "Unknown equation solver '" << equationSolverName << "'.");
             }
@@ -145,6 +151,10 @@ namespace storm {
                 return this->getOption(cudaOptionName).getHasOptionBeenSet();
             }
             
+            bool CoreSettings::isCanonicalResultsSet() const {
+                return this->getOption(canonicalResultsOptionName).getHasOptionBeenSet();
+            }
+
             CoreSettings::Engine CoreSettings::getEngine() const {
                 return engine;
             }
@@ -152,8 +162,12 @@ namespace storm {
             void CoreSettings::setEngine(Engine newEngine) {
                 this->engine = newEngine;
             }
-            
-            void CoreSettings::finalize() {
+
+	    bool CoreSettings::isResultStatsSet() const {
+                return this->getOption(resultStatsOptionName).getHasOptionBeenSet();
+	    }
+
+	    void CoreSettings::finalize() {
                 // Finalize engine.
                 std::string engineStr = this->getOption(engineOptionName).getArgumentByName("name").getValueAsString();
                 if (engineStr == "sparse") {

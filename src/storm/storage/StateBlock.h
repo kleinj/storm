@@ -24,6 +24,8 @@ namespace storm {
             static_assert(std::is_same<value_type, sparse::state_type>::value, "Illegal value type of container.");
             typedef container_type::iterator iterator;
             typedef container_type::const_iterator const_iterator;
+            typedef container_type::reverse_iterator reverse_iterator;
+            typedef container_type::const_reverse_iterator const_reverse_iterator;
             
             // Default constructors.
             StateBlock() = default;
@@ -109,7 +111,49 @@ namespace storm {
 			* @return A const iterator that points one past the end of the states in this SCC.
 			*/
 			const_iterator cend() const { return this->end(); };
+
+            /*!
+             * Returns a reverse iterator to the states in this SCC.
+             *
+             * @return A reverse iterator to the states in this SCC.
+             */
+            reverse_iterator rbegin();
+
+            /*!
+            * Returns a const reverse iterator to the states in this SCC.
+            *
+            * @return A const reverse iterator to the states in this SCC.
+            */
+            const_reverse_iterator rbegin() const;
+
+            /*!
+            * Returns a const reverse iterator to the states in this SCC.
+            *
+            * @return A const reverse iterator to the states in this SCC.
+            */
+            const_reverse_iterator crbegin() const { return this->rbegin(); };
             
+            /*!
+             * Returns an iterator that points before the first of the states in this SCC.
+             *
+             * @return An iterator that points before the first of the states in this SCC.
+             */
+            reverse_iterator rend();
+
+            /*!
+            * Returns a const iterator that points before the first of the states in this SCC.
+            *
+            * @return A const iterator that points before the first of the states in this SCC.
+            */
+            const_reverse_iterator rend() const;
+
+            /*!
+            * Returns a const iterator that points before the first of the states in this SCC.
+            *
+            * @return A const iterator that points before the first of the states in this SCC.
+            */
+            const_reverse_iterator crend() const { return this->rend(); };
+
             /*!
              * Retrieves whether the given state is in the SCC.
              *

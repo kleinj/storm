@@ -6,8 +6,16 @@
 #include "storm/settings/modules/EliminationSettings.h"
 
 namespace storm {
+    namespace storage {
+        // fwd
+        template <typename ValueType> class SparseMatrix;
+        template <typename ValueType> class FlexibleSparseMatrix;
+        class HTMLMatrixExport;
+    }
+
     namespace solver {
-        
+
+
         /*!
          * A class that uses gaussian elimination to implement the LinearEquationSolver interface.
          */
@@ -27,7 +35,8 @@ namespace storm {
 
         protected:
             virtual bool internalSolveEquations(Environment const& env, std::vector<ValueType>& x, std::vector<ValueType> const& b) const override;
-            
+            bool internalSolve(Environment const& env, const storm::storage::SparseMatrix<ValueType>& transitionMatrix, const std::vector<ValueType>& b, std::vector<ValueType>& x, std::shared_ptr<storm::storage::HTMLMatrixExport> htmlExport) const;
+
         private:
             virtual uint64_t getMatrixRowCount() const override;
             virtual uint64_t getMatrixColumnCount() const override;

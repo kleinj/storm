@@ -18,6 +18,12 @@ namespace storm {
             }
             
             template<typename ValueType, ScalingMode Mode>
+            const storm::storage::FlexibleSparseMatrix<ValueType>&
+            EliminatorBase<ValueType, Mode>::getMatrix() {
+                return matrix;
+            }
+
+            template<typename ValueType, ScalingMode Mode>
             void EliminatorBase<ValueType, Mode>::eliminate(uint64_t row, uint64_t column, bool clearRow) {
                 // Start by finding the entry in the given column.
                 bool hasEntryInColumn = false;

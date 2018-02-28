@@ -99,6 +99,8 @@ namespace storm {
                  * @return The precision to use for detecting convergence.
                  */
                 double getPrecision() const;
+
+                bool isTopologicalOrderingSet() const;
                                 
                 bool check() const override;
                 
@@ -113,6 +115,7 @@ namespace storm {
                 static const std::string maximalIterationsOptionShortName;
                 static const std::string precisionOptionName;
                 static const std::string restartOptionName;
+                static const std::string topologicalOrderingOptionName;
             };
             
             std::ostream& operator<<(std::ostream& out, EigenEquationSolverSettings::LinearEquationMethod const& method);

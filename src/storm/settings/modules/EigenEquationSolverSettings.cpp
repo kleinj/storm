@@ -23,6 +23,7 @@ namespace storm {
             const std::string EigenEquationSolverSettings::maximalIterationsOptionShortName = "i";
             const std::string EigenEquationSolverSettings::precisionOptionName = "precision";
             const std::string EigenEquationSolverSettings::restartOptionName = "restart";
+            const std::string EigenEquationSolverSettings::topologicalOrderingOptionName = "topo";
             
             EigenEquationSolverSettings::EigenEquationSolverSettings() : ModuleSettings(moduleName) {
                 std::vector<std::string> methods = {"sparselu", "bicgstab", "dgmres", "gmres"};
@@ -37,6 +38,7 @@ namespace storm {
                 this->addOption(storm::settings::OptionBuilder(moduleName, maximalIterationsOptionName, false, "The maximal number of iterations to perform before iterative solving is aborted.").setShortName(maximalIterationsOptionShortName).addArgument(storm::settings::ArgumentBuilder::createUnsignedIntegerArgument("count", "The maximal iteration count.").setDefaultValueUnsignedInteger(20000).build()).build());
                 
                 this->addOption(storm::settings::OptionBuilder(moduleName, precisionOptionName, false, "The precision used for detecting convergence of iterative methods.").addArgument(storm::settings::ArgumentBuilder::createDoubleArgument("value", "The precision to achieve.").setDefaultValueDouble(1e-06).addValidatorDouble(ArgumentValidatorFactory::createDoubleRangeValidatorExcluding(0.0, 1.0)).build()).build());
+                this->addOption(storm::settings::OptionBuilder(moduleName, topologicalOrderingOptionName, false, "Perform topological ordering").build());
             }
             
             bool EigenEquationSolverSettings::isLinearEquationSystemMethodSet() const {
@@ -101,6 +103,10 @@ namespace storm {
                 return this->getOption(precisionOptionName).getArgumentByName("value").getValueAsDouble();
             }
             
+            bool EigenEquationSolverSettings::isTopologicalOrderingSet() const {
+                return this->getOption(topologicalOrderingOptionName).getHasOptionBeenSet();
+            }
+
             bool EigenEquationSolverSettings::check() const {
                 // This list does not include the precision, because this option is shared with other modules.
                 bool optionsSet = isLinearEquationSystemMethodSet() || isPreconditioningMethodSet() || isMaximalIterationCountSet();

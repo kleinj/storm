@@ -18,6 +18,22 @@ namespace storm {
             return states.end();
         }
         
+        StateBlock::reverse_iterator StateBlock::rbegin() {
+            return states.rbegin();
+        }
+
+        StateBlock::const_reverse_iterator StateBlock::rbegin() const {
+            return states.rbegin();
+        }
+
+        StateBlock::reverse_iterator StateBlock::rend() {
+            return states.rend();
+        }
+
+        StateBlock::const_reverse_iterator StateBlock::rend() const {
+            return states.rend();
+        }
+
         std::size_t StateBlock::size() const {
             return states.size();
         }

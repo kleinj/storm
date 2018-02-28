@@ -50,6 +50,8 @@ namespace storm {
                     return "Eigen";
                 case EquationSolverType::Elimination:
                     return "Elimination";
+                case EquationSolverType::GaussElimination:
+                    return "Gauss-Elimination";
             }
             return "invalid";
         }

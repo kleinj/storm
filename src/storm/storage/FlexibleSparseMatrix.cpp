@@ -6,24 +6,37 @@
 
 #include "storm/utility/macros.h"
 #include "storm/utility/constants.h"
+#include "storm/utility/NumericalTypesConverter.h"
 #include "storm/exceptions/InvalidArgumentException.h"
+#include "storm/exceptions/InvalidAccessException.h"
+#include "storm/exceptions/NotImplementedException.h"
+
+#include <algorithm>
 
 namespace storm {
     namespace storage {
         template<typename ValueType>
-        FlexibleSparseMatrix<ValueType>::FlexibleSparseMatrix(index_type rows) : data(rows), columnCount(0), nonzeroEntryCount(0) {
+        FlexibleSparseMatrix<ValueType>::FlexibleSparseMatrix() : FlexibleSparseMatrix(0) {
+            // Intentionally left empty.
+        }
+
+        template<typename ValueType>
+        FlexibleSparseMatrix<ValueType>::FlexibleSparseMatrix(index_type rows) : data(rows), columnCount(0), nonzeroEntryCount(0), trivialRowGrouping(true), zero_val(storm::utility::zero<value_type>()) {
             // Intentionally left empty.
         }
         
         template<typename ValueType>
-        FlexibleSparseMatrix<ValueType>::FlexibleSparseMatrix(storm::storage::SparseMatrix<ValueType> const& matrix, bool setAllValuesToOne, bool revertEquationSystem) : data(matrix.getRowCount()), columnCount(matrix.getColumnCount()), nonzeroEntryCount(matrix.getNonzeroEntryCount()), trivialRowGrouping(matrix.hasTrivialRowGrouping()) {
+        template<typename SourceValueType>
+        FlexibleSparseMatrix<ValueType>::FlexibleSparseMatrix(storm::storage::SparseMatrix<SourceValueType> const& matrix, bool setAllValuesToOne, bool revertEquationSystem) : data(matrix.getRowCount()), columnCount(matrix.getColumnCount()), nonzeroEntryCount(matrix.getNonzeroEntryCount()), trivialRowGrouping(matrix.hasTrivialRowGrouping()), zero_val(storm::utility::zero<value_type>()) {
             STORM_LOG_THROW(!revertEquationSystem || trivialRowGrouping, storm::exceptions::InvalidArgumentException, "Illegal option for creating flexible matrix.");
             
+            storm::utility::NumericalTypesConverter<SourceValueType,ValueType> converter;
+
             if (!trivialRowGrouping) {
                 rowGroupIndices = matrix.getRowGroupIndices();
             }
             for (index_type rowIndex = 0; rowIndex < matrix.getRowCount(); ++rowIndex) {
-                typename storm::storage::SparseMatrix<ValueType>::const_rows row = matrix.getRow(rowIndex);
+                auto const& row = matrix.getRow(rowIndex);
                 reserveInRow(rowIndex, row.getNumberOfEntries());
                 for (auto const& element : row) {
                     // If the probability is zero, we skip this entry.
@@ -46,16 +59,51 @@ namespace storm {
                                 if (storm::utility::isOne(element.getValue())) {
                                     continue;
                                 }
-                                getRow(rowIndex).emplace_back(element.getColumn(), storm::utility::one<ValueType>() - element.getValue());
+                                getRow(rowIndex).emplace_back(element.getColumn(), storm::utility::one<ValueType>() - converter.convert(element.getValue()));
                             } else {
-                                getRow(rowIndex).emplace_back(element.getColumn(), -element.getValue());
+                                getRow(rowIndex).emplace_back(element.getColumn(), -converter.convert(element.getValue()));
                             }
                         } else {
-                            getRow(rowIndex).emplace_back(element);
+                            getRow(rowIndex).emplace_back(element.getColumn(), converter.convert(element.getValue()));
                         }
                     }
                 }
             }
+        }
+
+        template<typename TargetValueType>
+        template<typename SourceValueType>
+        FlexibleSparseMatrix<TargetValueType>
+        FlexibleSparseMatrix<TargetValueType>::augmentedFromSparseMatrix(storm::storage::SparseMatrix<SourceValueType> const& matrix, std::vector<SourceValueType> const &b) {
+            STORM_LOG_THROW(matrix.hasTrivialRowGrouping(), storm::exceptions::InvalidArgumentException, "Illegal option for creating flexible matrix.");
+
+            FlexibleSparseMatrix<TargetValueType> result(matrix.getRowCount());
+            result.columnCount = matrix.getColumnCount() + 1;
+            result.trivialRowGrouping = matrix.hasTrivialRowGrouping();
+
+            index_type bColIndex = result.columnCount - 1;
+            index_type nnz = matrix.getNonzeroEntryCount();
+
+            storm::utility::NumericalTypesConverter<SourceValueType,TargetValueType> converter;
+
+            for (index_type rowIndex = 0; rowIndex < matrix.getRowCount(); ++rowIndex) {
+                typename storm::storage::SparseMatrix<SourceValueType>::const_rows row = matrix.getRow(rowIndex);
+                result.reserveInRow(rowIndex, row.getNumberOfEntries() + 1);
+                for (auto const& element : row) {
+                    // If the probability is zero, we skip this entry.
+                    if (!storm::utility::isZero(element.getValue())) {
+                        result.getRow(rowIndex).emplace_back(element.getColumn(), converter.convert(element.getValue()));
+                    }
+                }
+                if (!storm::utility::isZero(b[rowIndex])) {
+                    result.getRow(rowIndex).emplace_back(bColIndex, converter.convert(b[rowIndex]));
+                    ++nnz;
+                }
+            }
+
+            result.nonzeroEntryCount = nnz;
+
+            return result;
         }
 
         template<typename ValueType>
@@ -86,7 +134,211 @@ namespace storm {
             STORM_LOG_ASSERT(offset < this->getRowGroupSize(rowGroup), "Invalid offset.");
             return getRow(rowGroupIndices[rowGroup] + offset);
         }
-        
+
+        template<typename ValueType>
+        typename FlexibleSparseMatrix<ValueType>::value_type const& FlexibleSparseMatrix<ValueType>::getValue(index_type rowIndex, index_type colIndex) const {
+            const row_type& row = getRow(rowIndex);
+            for (const_iterator it = row.begin(); it != row.end(); ++it) {
+                index_type c = it->getColumn();
+                if (c == colIndex) {
+                    return it->getValue();
+                }
+                if (c > colIndex) {
+                    return zero_val;
+                }
+            }
+            return zero_val;
+        }
+
+        template<typename ValueType>
+        typename FlexibleSparseMatrix<ValueType>::value_type const& FlexibleSparseMatrix<ValueType>::getValueFast(index_type rowIndex, index_type colIndex) const {
+            const row_type& row = getRow(rowIndex);
+            if (row.empty()) {
+                return zero_val;
+            }
+
+            const entry_type& first_entry = row.front();
+            index_type first_col = first_entry.getColumn();
+            if (first_col == colIndex) {
+                return first_entry.getValue();
+            } else if (first_col > colIndex) {
+                return zero_val;
+            }
+
+            const entry_type& last_entry = row.back();
+            index_type last_col = last_entry.getColumn();
+            if (last_col == colIndex) {
+                return last_entry.getValue();
+            } else if (last_col < colIndex) {
+                return zero_val;
+            }
+
+            STORM_LOG_THROW(true, storm::exceptions::InvalidAccessException, "getValueFast failed, trying to access column " << colIndex <<", entries are between " << first_col << " and " << last_col);
+        }
+
+        template<typename ValueType>
+        typename FlexibleSparseMatrix<ValueType>::value_type const& FlexibleSparseMatrix<ValueType>::getValueLeft(index_type rowIndex, index_type colIndex) const {
+            const row_type& row = getRow(rowIndex);
+            if (row.empty()) {
+                return zero_val;
+            }
+
+            const entry_type& entry = row.front();
+            index_type first_col = entry.getColumn();
+            if (first_col == colIndex) {
+                return entry.getValue();
+            } else if (first_col > colIndex) {
+                return zero_val;
+            }
+
+            STORM_LOG_THROW(true, storm::exceptions::InvalidAccessException, "getValueLeft failed, trying to access column " << rowIndex << ", first entry is at " << first_col);
+        }
+
+        template<typename ValueType>
+        typename FlexibleSparseMatrix<ValueType>::value_type const& FlexibleSparseMatrix<ValueType>::getValueRight(index_type rowIndex, index_type colIndex) const {
+            const row_type& row = getRow(rowIndex);
+            if (row.empty()) {
+                return zero_val;
+            }
+
+            const entry_type& entry = row.back();
+            index_type last_col = entry.getColumn();
+            if (last_col == colIndex) {
+                return entry.getValue();
+            } else if (last_col < colIndex) {
+                return zero_val;
+            }
+
+            STORM_LOG_THROW(true, storm::exceptions::InvalidAccessException, "getValueRight failed, trying to access column " << colIndex << ", last entry is at " << last_col);
+        }
+
+        template<typename ValueType>
+        typename FlexibleSparseMatrix<ValueType>::const_iterator FlexibleSparseMatrix<ValueType>::row_begin(index_type rowIndex, index_type first_col) const
+        {
+            const row_type& row = getRow(rowIndex);
+            for (const_iterator it = row.begin(); it != row.end(); ++it) {
+                if (it->getColumn() >= first_col) {
+                    return it;
+                }
+            }
+            return row.end();
+        }
+
+        template<typename ValueType>
+        typename FlexibleSparseMatrix<ValueType>::const_iterator FlexibleSparseMatrix<ValueType>::row_end(index_type rowIndex) const {
+            const row_type& row = getRow(rowIndex);
+            return row.end();
+        }
+
+        template <typename ValueType>
+        typename FlexibleSparseMatrix<ValueType>::column_range
+        FlexibleSparseMatrix<ValueType>::row_col_range(index_type rowIndex, index_type first_col, index_type last_col) const {
+            return column_range(getRow(rowIndex), first_col, last_col);
+        }
+
+        template <typename ValueType>
+        FlexibleSparseMatrix<ValueType>::column_range::column_range(const row_type& row, index_type first_col, index_type last_col)
+            : row(row), first_col(first_col), last_col(last_col) {
+        }
+
+        template <typename ValueType>
+        typename FlexibleSparseMatrix<ValueType>::column_range::const_iterator
+        FlexibleSparseMatrix<ValueType>::column_range::begin() const {
+            return const_iterator(*this);
+        }
+
+        template <typename ValueType>
+        typename FlexibleSparseMatrix<ValueType>::column_range::const_iterator
+        FlexibleSparseMatrix<ValueType>::column_range::end() const {
+            return const_iterator(*this, true);
+        }
+
+        template <typename ValueType>
+        FlexibleSparseMatrix<ValueType>::column_range::const_iterator::const_iterator(const column_range& range, bool done)
+            : range(range), done(done) {
+            cur = range.row.begin();
+            end = range.row.end();
+
+            if (range.first_col > range.last_col) {
+                this->done = true;
+                return;
+            }
+
+            while (!check_done()) {
+                if (cur->getColumn() >= range.first_col) {
+                    return;
+                }
+                ++cur;
+            }
+
+            this->done = true;
+        }
+
+        template <typename ValueType>
+        bool FlexibleSparseMatrix<ValueType>::column_range::const_iterator::check_done() {
+            if (done || cur == end || cur->getColumn() > range.last_col) {
+                return true;
+            }
+            return false;
+        }
+
+
+        template <typename ValueType>
+        typename FlexibleSparseMatrix<ValueType>::column_range::const_iterator&
+        FlexibleSparseMatrix<ValueType>::column_range::const_iterator::operator++() {
+            // prefix operator
+            ++cur;
+            if (check_done()) {
+                done = true;
+            }
+            return *this;
+        }
+
+        template <typename ValueType>
+        typename FlexibleSparseMatrix<ValueType>::column_range::const_iterator
+        FlexibleSparseMatrix<ValueType>::column_range::const_iterator::operator++(int) {
+            // postfix operator
+            const_iterator i = *this;
+            ++cur;
+            if (check_done()) {
+                done = true;
+            }
+            return i;
+        }
+
+        template <typename ValueType>
+        typename FlexibleSparseMatrix<ValueType>::column_range::const_iterator::const_reference
+        FlexibleSparseMatrix<ValueType>::column_range::const_iterator::operator*() {
+            STORM_LOG_ASSERT(!done, "Accessing invalid iterator");
+            return *cur;
+        }
+
+        template <typename ValueType>
+        typename FlexibleSparseMatrix<ValueType>::column_range::const_iterator::const_pointer
+        FlexibleSparseMatrix<ValueType>::column_range::const_iterator::operator->() {
+            STORM_LOG_ASSERT(!done, "Accessing invalid iterator");
+            return &(*cur);
+        }
+
+        template <typename ValueType>
+        bool FlexibleSparseMatrix<ValueType>::column_range::const_iterator::operator==(const const_iterator& other) {
+            if (done || other.done) {
+                return done == other.done && &range == &other.range;
+            } else {
+                return cur == other.cur;
+            }
+        }
+
+        template <typename ValueType>
+        bool FlexibleSparseMatrix<ValueType>::column_range::const_iterator::operator!=(const const_iterator& other) {
+            return !(*this == other);
+        }
+
+        template <typename ValueType>
+        const ValueType& FlexibleSparseMatrix<ValueType>::getZeroValue() const {
+            return zero_val;
+        }
+
         template<typename ValueType>
         std::vector<typename FlexibleSparseMatrix<ValueType>::index_type> const& FlexibleSparseMatrix<ValueType>::getRowGroupIndices() const {
             return rowGroupIndices;
@@ -172,15 +424,35 @@ namespace storm {
                 row = std::move(newRow);
             }
         }
-        
+
         template<typename ValueType>
-        storm::storage::SparseMatrix<ValueType> FlexibleSparseMatrix<ValueType>::createSparseMatrix() {
+        void FlexibleSparseMatrix<ValueType>::permute(const Permutation& permutation) {
+            STORM_LOG_THROW(trivialRowGrouping, storm::exceptions::NotImplementedException, "FlexibleSparseMatrix::permute in the presence of row groupings not implemented");
+
+            // change column indizes
+            for (auto &row : this->data) {
+                for (auto &entry : row) {
+                    entry.setColumn(permutation.get(entry.getColumn()));
+                }
+                // sort to obtain monotonic order again
+                std::sort(row.begin(), row.end(), typename entry_type::column_compare());
+            }
+
+            // now, we have just permute the rows
+            permutation.permute(this->data);
+        }
+
+        template<typename ValueType>
+        template<typename T>
+        storm::storage::SparseMatrix<T> FlexibleSparseMatrix<ValueType>::createSparseMatrix() {
             uint_fast64_t numEntries = 0;
             for (auto const& row : this->data) {
                 numEntries += row.size();
             }
             
-            storm::storage::SparseMatrixBuilder<ValueType> matrixBuilder(getRowCount(), getColumnCount(), numEntries, hasTrivialRowGrouping(), hasTrivialRowGrouping() ? 0 : getRowGroupCount());
+            storm::utility::NumericalTypesConverter<ValueType,T> converter;
+
+            storm::storage::SparseMatrixBuilder<T> matrixBuilder(getRowCount(), getColumnCount(), numEntries, hasTrivialRowGrouping(), hasTrivialRowGrouping() ? 0 : getRowGroupCount());
             uint_fast64_t currRowIndex = 0;
             auto rowGroupIndexIt = getRowGroupIndices().begin();
             for (auto const& row : this->data) {
@@ -191,7 +463,7 @@ namespace storm {
                     }
                 }
                 for (auto const& entry : row) {
-                    matrixBuilder.addNextValue(currRowIndex, entry.getColumn(), entry.getValue());
+                    matrixBuilder.addNextValue(currRowIndex, entry.getColumn(), converter.convert(entry.getValue()));
                 }
                 ++currRowIndex;
             }
@@ -206,7 +478,8 @@ namespace storm {
         }
         
         template<typename ValueType>
-        storm::storage::SparseMatrix<ValueType> FlexibleSparseMatrix<ValueType>::createSparseMatrix(storm::storage::BitVector const& rowConstraint, storm::storage::BitVector const& columnConstraint) {
+        template<typename T>
+        storm::storage::SparseMatrix<T> FlexibleSparseMatrix<ValueType>::createSparseMatrix(storm::storage::BitVector const& rowConstraint, storm::storage::BitVector const& columnConstraint) {
             uint_fast64_t numEntries = 0;
             for (auto const& rowIndex : rowConstraint) {
                 auto const& row = data[rowIndex];
@@ -233,8 +506,10 @@ namespace storm {
             for (auto const& oldColumnIndex : columnConstraint) {
                 oldToNewColumnIndexMapping[oldColumnIndex] = newColumnIndex++;
             }
+
+            storm::utility::NumericalTypesConverter<ValueType,T> converter;
             
-            storm::storage::SparseMatrixBuilder<ValueType> matrixBuilder(rowConstraint.getNumberOfSetBits(), newColumnIndex, numEntries, true, !hasTrivialRowGrouping(), numRowGroups);
+            storm::storage::SparseMatrixBuilder<T> matrixBuilder(rowConstraint.getNumberOfSetBits(), newColumnIndex, numEntries, true, !hasTrivialRowGrouping(), numRowGroups);
             uint_fast64_t currRowIndex = 0;
             auto rowGroupIndexIt = getRowGroupIndices().begin();
             for (auto const& oldRowIndex : rowConstraint) {
@@ -248,7 +523,7 @@ namespace storm {
                 auto const& row = data[oldRowIndex];
                 for (auto const& entry : row) {
                     if(columnConstraint.get(entry.getColumn())) {
-                        matrixBuilder.addNextValue(currRowIndex, oldToNewColumnIndexMapping[entry.getColumn()], entry.getValue());
+                        matrixBuilder.addNextValue(currRowIndex, oldToNewColumnIndexMapping[entry.getColumn()], converter.convert(entry.getValue()));
                     }
                 }
                 ++currRowIndex;
@@ -269,7 +544,15 @@ namespace storm {
             }
             return false;
         }
-        
+
+        template<typename ValueType>
+        void FlexibleSparseMatrix<ValueType>::replaceRow(index_type rowIndex, row_type&& new_row) {
+            if (!new_row.empty() && new_row.back().getColumn() > columnCount+1) {
+                columnCount = new_row.back().getColumn() + 1;
+            }
+            data[rowIndex] = new_row;
+        }
+
         template<typename ValueType>
         std::ostream& FlexibleSparseMatrix<ValueType>::printRow(std::ostream& out, index_type const& rowIndex) const {
             index_type columnIndex = 0;
@@ -333,16 +616,63 @@ namespace storm {
             return out;
         }
 
+#define INSTANTIATE(T) \
+        template class FlexibleSparseMatrix<T>; \
+        template std::ostream& operator<<(std::ostream& out, FlexibleSparseMatrix<T> const& matrix);
+
+#define INSTANTIATE_CONSTRUCTION(FROM,TO) \
+        template FlexibleSparseMatrix<TO>::FlexibleSparseMatrix(storm::storage::SparseMatrix<FROM> const& matrix, bool setAllValuesToOne, bool revertEquationSystem); \
+        template FlexibleSparseMatrix<TO> FlexibleSparseMatrix<TO>::augmentedFromSparseMatrix(storm::storage::SparseMatrix<FROM> const& matrix, std::vector<FROM> const &b);
+
+#define INSTANTIATE_SPARSE_MATRIX_CONSTRUCTION(T) \
+        template SparseMatrix<T> FlexibleSparseMatrix<T>::createSparseMatrix(); \
+        template SparseMatrix<T> FlexibleSparseMatrix<T>::createSparseMatrix(BitVector const& rowConstraint, BitVector const& columnConstraint);
+
+#define INSTANTIATE_ALL(T) \
+        INSTANTIATE(T) \
+        INSTANTIATE_CONSTRUCTION(T,T) \
+        INSTANTIATE_SPARSE_MATRIX_CONSTRUCTION(T)
+
         // Explicitly instantiate the matrix.
-        template class FlexibleSparseMatrix<double>;
-        template std::ostream& operator<<(std::ostream& out, FlexibleSparseMatrix<double> const& matrix);
+
+        // double
+        INSTANTIATE_ALL(double)
+
+        // float
+        INSTANTIATE_ALL(float)
+
+        // int
+        INSTANTIATE_ALL(int)
+
+        // state_type
+        INSTANTIATE_ALL(storm::storage::sparse::state_type)
 
 #ifdef STORM_HAVE_CARL
-        template class FlexibleSparseMatrix<storm::RationalNumber>;
-        template std::ostream& operator<<(std::ostream& out, FlexibleSparseMatrix<storm::RationalNumber> const& matrix);
+#if defined(STORM_HAVE_CLN)
+        INSTANTIATE_ALL(storm::ClnRationalNumber)
+#endif
 
-        template class FlexibleSparseMatrix<storm::RationalFunction>;
-        template std::ostream& operator<<(std::ostream& out, FlexibleSparseMatrix<storm::RationalFunction> const& matrix);
+#if defined(STORM_HAVE_GMP)
+        INSTANTIATE_ALL(GmpRationalNumber)
+#endif
+
+        INSTANTIATE_ALL(storm::RationalFunction)
+
+        INSTANTIATE(storm::PlainRationalFunction)
+        INSTANTIATE_CONSTRUCTION(storm::RationalFunction,storm::PlainRationalFunction)
+
+        INSTANTIATE(storm::PlainRationalFunctionNoSimplify)
+        INSTANTIATE_CONSTRUCTION(storm::RationalFunction,storm::PlainRationalFunctionNoSimplify)
+
+        INSTANTIATE(storm::FactorizedRationalFunctionNoSimplify)
+        INSTANTIATE_CONSTRUCTION(storm::RationalFunction,storm::FactorizedRationalFunctionNoSimplify)
+
+        INSTANTIATE(storm::RawPolynomial)
+        INSTANTIATE_CONSTRUCTION(storm::RationalFunction,storm::RawPolynomial)
+
+        // Intervals
+        INSTANTIATE_ALL(storm::Interval)
+
 #endif
 
     } // namespace storage

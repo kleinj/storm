@@ -10,6 +10,7 @@
 #include <boost/functional/hash.hpp>
 #include <boost/optional.hpp>
 
+#include "storm/storage/MatrixEntry.h"
 #include "storm/solver/OptimizationDirection.h"
 
 #include "storm/utility/OsDetection.h"
@@ -33,107 +34,16 @@ namespace storm {
 
 namespace storm {
     namespace storage {
-        
+
         class BitVector;
-        
+        class Permutation;
+
         // Forward declare matrix class.
         template<typename T>
         class SparseMatrix;
         
         typedef uint_fast64_t SparseMatrixIndexType;
-        
-        template<typename IndexType, typename ValueType>
-        class MatrixEntry {
-        public:
-            typedef IndexType index_type;
-            typedef ValueType value_type;
-            
-            /*!
-             * Constructs a matrix entry with the given column and value.
-             *
-             * @param column The column of the matrix entry.
-             * @param value The value of the matrix entry.
-             */
-            MatrixEntry(index_type column, value_type value);
-            
-            /*!
-             * Move-constructs the matrix entry fro the given column-value pair.
-             *
-             * @param pair The column-value pair from which to move-construct the matrix entry.
-             */
-            MatrixEntry(std::pair<index_type, value_type>&& pair);
-            
-            MatrixEntry() = default;
-            MatrixEntry(MatrixEntry const& other) = default;
-            MatrixEntry& operator=(MatrixEntry const& other) = default;
-#ifndef WINDOWS
-            MatrixEntry(MatrixEntry&& other) = default;
-            MatrixEntry& operator=(MatrixEntry&& other) = default;
-#endif
-            
-            /*!
-             * Retrieves the column of the matrix entry.
-             *
-             * @return The column of the matrix entry.
-             */
-            index_type const& getColumn() const;
-            
-            /*!
-             * Sets the column of the current entry.
-             *
-             * @param column The column to set for this entry.
-             */
-            void setColumn(index_type const& column);
-            
-            /*!
-             * Retrieves the value of the matrix entry.
-             *
-             * @return The value of the matrix entry.
-             */
-            value_type const& getValue() const;
-            
-            /*!
-             * Sets the value of the entry in the matrix.
-             *
-             * @param value The value that is to be set for this entry.
-             */
-            void setValue(value_type const& value);
-            
-            /*!
-             * Retrieves a pair of column and value that characterizes this entry.
-             *
-             * @return A column-value pair that characterizes this entry.
-             */
-            std::pair<index_type, value_type> const& getColumnValuePair() const;
-            
-            /*!
-             * Multiplies the entry with the given factor and returns the result.
-             *
-             * @param factor The factor with which to multiply the entry.
-             */
-            MatrixEntry operator*(value_type factor) const;
-            
-            bool operator==(MatrixEntry const& other) const;
-            bool operator!=(MatrixEntry const& other) const;
-            
-            template<typename IndexTypePrime, typename ValueTypePrime>
-            friend std::ostream& operator<<(std::ostream& out, MatrixEntry<IndexTypePrime, ValueTypePrime> const& entry);
-        private:
-            // The actual matrix entry.
-            std::pair<index_type, value_type> entry;
-        };
-        
-        /*!
-         * Computes the hash value of a matrix entry.
-         */
-        template<typename IndexType, typename ValueType>
-        std::size_t hash_value(MatrixEntry<IndexType, ValueType> const& matrixEntry) {
-            std::size_t seed = 0;
-            boost::hash_combine(seed, matrixEntry.getColumn());
-            boost::hash_combine(seed, matrixEntry.getValue());
-            return seed;
-        }
-        
+
         /*!
          * A class that can be used to build a sparse matrix by adding value by value.
          */
@@ -1068,7 +978,9 @@ namespace storm {
              * @return An iterator that points past the end of the last row of the matrix.
              */
             iterator end();
-            
+
+            SparseMatrix<ValueType> permute(const Permutation& permutation) const;
+
 			/*!
 			* Returns a copy of the matrix with the chosen internal data type
 			*/
