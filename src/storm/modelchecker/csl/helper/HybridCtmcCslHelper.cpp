@@ -65,7 +65,7 @@ namespace storm {
                 if (!statesWithProbabilityGreater0NonPsi.isZero()) {
                     if (storm::utility::isZero(upperBound)) {
                         // In this case, the interval is of the form [0, 0].
-                        return std::unique_ptr<CheckResult>(new SymbolicQuantitativeCheckResult<DdType, ValueType>(model.getReachableStates(), psiStates.template toAdd<ValueType>()));
+                        return std::unique_ptr<CheckResult>(new SymbolicQuantitativeCheckResult<DdType, ValueType>(model.getReachableStates(), model.getRowVariables(), psiStates.template toAdd<ValueType>()));
                     } else {
                         if (storm::utility::isZero(lowerBound)) {
                             // In this case, the interval is of the form [0, t].
@@ -243,7 +243,7 @@ namespace storm {
                         }
                     }
                 } else {
-                    return std::unique_ptr<CheckResult>(new SymbolicQuantitativeCheckResult<DdType>(model.getReachableStates(), psiStates.template toAdd<ValueType>()));
+                    return std::unique_ptr<CheckResult>(new SymbolicQuantitativeCheckResult<DdType>(model.getReachableStates(), model.getRowVariables(), psiStates.template toAdd<ValueType>()));
                 }
             }
             
@@ -298,7 +298,7 @@ namespace storm {
                 
                 // If the time bound is zero, the result is the constant zero vector.
                 if (timeBound == 0) {
-                    return std::unique_ptr<CheckResult>(new SymbolicQuantitativeCheckResult<DdType, ValueType>(model.getReachableStates(), model.getManager().template getAddZero<ValueType>()));
+                    return std::unique_ptr<CheckResult>(new SymbolicQuantitativeCheckResult<DdType, ValueType>(model.getReachableStates(), model.getRowVariables(), model.getManager().template getAddZero<ValueType>()));
                 }
                 
                 // Otherwise, we need to perform some computations.

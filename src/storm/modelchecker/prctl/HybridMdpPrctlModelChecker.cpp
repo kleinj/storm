@@ -141,7 +141,7 @@ namespace storm {
                 }
             } else if(explicitResult->isExplicitQuantitativeCheckResult()) {
                 ValueType const& res = explicitResult->template asExplicitQuantitativeCheckResult<ValueType>()[*sparseModel->getInitialStates().begin()];
-                return std::unique_ptr<CheckResult>(new storm::modelchecker::SymbolicQuantitativeCheckResult<DdType, ValueType>(this->getModel().getReachableStates(), this->getModel().getInitialStates(), this->getModel().getManager().template getConstant<ValueType>(res)));
+                return std::unique_ptr<CheckResult>(new storm::modelchecker::SymbolicQuantitativeCheckResult<DdType, ValueType>(this->getModel().getReachableStates(), this->getModel().getRowVariables(), this->getModel().getInitialStates(), this->getModel().getManager().template getConstant<ValueType>(res)));
             } else if(explicitResult->isExplicitParetoCurveCheckResult()) {
                 ExplicitParetoCurveCheckResult<ValueType> const& paretoResult = explicitResult->template asExplicitParetoCurveCheckResult<ValueType>();
                 return std::unique_ptr<CheckResult>(new storm::modelchecker::SymbolicParetoCurveCheckResult<DdType, ValueType>(this->getModel().getInitialStates(), paretoResult.getPoints(), paretoResult.getUnderApproximation(), paretoResult.getOverApproximation()));

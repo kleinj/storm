@@ -334,12 +334,12 @@ namespace storm {
             if (isRewardFormula) {
                 storm::dd::Add<DdType, ValueType> values = storm::modelchecker::helper::SymbolicDtmcPrctlHelper<DdType, ValueType>::computeReachabilityRewards(env, abstractModel, abstractModel.getTransitionMatrix(), checkTask->isRewardModelSet() ? abstractModel.getRewardModel(checkTask->getRewardModel()) : abstractModel.getRewardModel(""), maybe, targetStates.getStates(), !qualitativeResults.getProb1Min().getStates() && abstractModel.getReachableStates(), startValues);
                 
-                result.first = std::make_unique<SymbolicQuantitativeCheckResult<DdType, ValueType>>(abstractModel.getReachableStates(), values);
+                result.first = std::make_unique<SymbolicQuantitativeCheckResult<DdType, ValueType>>(abstractModel.getReachableStates(), abstractModel.getRowVariables(), values);
                 result.second = result.first->clone();
             } else {
                 storm::dd::Add<DdType, ValueType> values = storm::modelchecker::helper::SymbolicDtmcPrctlHelper<DdType, ValueType>::computeUntilProbabilities(env, abstractModel, abstractModel.getTransitionMatrix(), maybe, qualitativeResults.getProb1Min().getStates(), startValues);
                 
-                result.first = std::make_unique<SymbolicQuantitativeCheckResult<DdType, ValueType>>(abstractModel.getReachableStates(), values);
+                result.first = std::make_unique<SymbolicQuantitativeCheckResult<DdType, ValueType>>(abstractModel.getReachableStates(), abstractModel.getRowVariables(), values);
                 result.second = result.first->clone();
             }
             
@@ -444,7 +444,7 @@ namespace storm {
             std::unique_ptr<storm::solver::SymbolicGameSolver<DdType, ValueType>> solver = solverFactory.create(submatrix, maybeStates, abstractModel.getIllegalPlayer1Mask(), abstractModel.getIllegalPlayer2Mask(), abstractModel.getRowVariables(), abstractModel.getColumnVariables(), abstractModel.getRowColumnMetaVariablePairs(), abstractModel.getPlayer1Variables(), abstractModel.getPlayer2Variables());
             auto values = solver->solveGame(env, player1Direction, player2Direction, startVector, subvector);
             
-            return std::make_unique<storm::modelchecker::SymbolicQuantitativeCheckResult<DdType, ValueType>>(abstractModel.getReachableStates(), prob1States.template toAdd<ValueType>() + values);
+            return std::make_unique<storm::modelchecker::SymbolicQuantitativeCheckResult<DdType, ValueType>>(abstractModel.getReachableStates(), abstractModel.getRowVariables(), prob1States.template toAdd<ValueType>() + values);
         }
 
         template<typename ModelType>
@@ -712,7 +712,7 @@ namespace storm {
                 // In the reachability reward case, we can give an answer if all initial states of the system are infinity
                 // states in the min result.
                 if ((abstractModel.getInitialStates() && !symbolicQualitativeResultMinMax.getProb1Min().getStates()) == abstractModel.getInitialStates()) {
-                    result = std::make_unique<storm::modelchecker::SymbolicQuantitativeCheckResult<DdType, ValueType>>(abstractModel.getReachableStates(), abstractModel.getInitialStates(), abstractModel.getInitialStates().ite(abstractModel.getManager().getConstant(storm::utility::infinity<ValueType>()), abstractModel.getManager().template getAddZero<ValueType>()));
+                    result = std::make_unique<storm::modelchecker::SymbolicQuantitativeCheckResult<DdType, ValueType>>(abstractModel.getReachableStates(), abstractModel.getRowVariables(), abstractModel.getInitialStates(), abstractModel.getInitialStates().ite(abstractModel.getManager().getConstant(storm::utility::infinity<ValueType>()), abstractModel.getManager().template getAddZero<ValueType>()));
                 }
             } else {
                 // In the reachability probability case, we can give the answer if all initial states are prob1 states
@@ -721,13 +721,13 @@ namespace storm {
                 // and the probability bound was 0 or if there are initial states with probability < 1 in the max case
                 // and the probability bound was 1.
                 if ((abstractModel.getInitialStates() && symbolicQualitativeResultMinMax.getProb1Min().getStates()) == abstractModel.getInitialStates()) {
-                    result = std::make_unique<storm::modelchecker::SymbolicQuantitativeCheckResult<DdType, ValueType>>(abstractModel.getReachableStates(), abstractModel.getInitialStates(), abstractModel.getManager().template getAddOne<ValueType>());
+                    result = std::make_unique<storm::modelchecker::SymbolicQuantitativeCheckResult<DdType, ValueType>>(abstractModel.getReachableStates(), abstractModel.getRowVariables(), abstractModel.getInitialStates(), abstractModel.getManager().template getAddOne<ValueType>());
                 } else if ((abstractModel.getInitialStates() && symbolicQualitativeResultMinMax.getProb0Max().getStates()) == abstractModel.getInitialStates()) {
-                    result = std::make_unique<storm::modelchecker::SymbolicQuantitativeCheckResult<DdType, ValueType>>(abstractModel.getReachableStates(), abstractModel.getInitialStates(), abstractModel.getManager().template getAddZero<ValueType>());
+                    result = std::make_unique<storm::modelchecker::SymbolicQuantitativeCheckResult<DdType, ValueType>>(abstractModel.getReachableStates(), abstractModel.getRowVariables(), abstractModel.getInitialStates(), abstractModel.getManager().template getAddZero<ValueType>());
                 } else if (checkTask->isBoundSet() && checkTask->getBoundThreshold() == storm::utility::zero<ValueType>() && (abstractModel.getInitialStates() && symbolicQualitativeResultMinMax.getProb0Min().getStates()) != abstractModel.getInitialStates()) {
-                    result = std::make_unique<storm::modelchecker::SymbolicQuantitativeCheckResult<DdType, ValueType>>(abstractModel.getReachableStates(), abstractModel.getInitialStates(), (abstractModel.getInitialStates() && symbolicQualitativeResultMinMax.getProb0Min().getStates()).ite(abstractModel.getManager().template getConstant<ValueType>(0.5), abstractModel.getManager().template getAddZero<ValueType>()));
+                    result = std::make_unique<storm::modelchecker::SymbolicQuantitativeCheckResult<DdType, ValueType>>(abstractModel.getReachableStates(), abstractModel.getRowVariables(), abstractModel.getInitialStates(), (abstractModel.getInitialStates() && symbolicQualitativeResultMinMax.getProb0Min().getStates()).ite(abstractModel.getManager().template getConstant<ValueType>(0.5), abstractModel.getManager().template getAddZero<ValueType>()));
                 } else if (checkTask->isBoundSet() && checkTask->getBoundThreshold() == storm::utility::one<ValueType>() && (abstractModel.getInitialStates() && symbolicQualitativeResultMinMax.getProb1Max().getStates()) != abstractModel.getInitialStates()) {
-                    result = std::make_unique<storm::modelchecker::SymbolicQuantitativeCheckResult<DdType, ValueType>>(abstractModel.getReachableStates(), abstractModel.getInitialStates(), (abstractModel.getInitialStates() && symbolicQualitativeResultMinMax.getProb1Max().getStates()).ite(abstractModel.getManager().template getConstant<ValueType>(0.5), abstractModel.getManager().template getAddZero<ValueType>()) + symbolicQualitativeResultMinMax.getProb1Max().getStates().template toAdd<ValueType>());
+                    result = std::make_unique<storm::modelchecker::SymbolicQuantitativeCheckResult<DdType, ValueType>>(abstractModel.getReachableStates(), abstractModel.getRowVariables(), abstractModel.getInitialStates(), (abstractModel.getInitialStates() && symbolicQualitativeResultMinMax.getProb1Max().getStates()).ite(abstractModel.getManager().template getConstant<ValueType>(0.5), abstractModel.getManager().template getAddZero<ValueType>()) + symbolicQualitativeResultMinMax.getProb1Max().getStates().template toAdd<ValueType>());
                 }
             }
             
@@ -783,7 +783,7 @@ namespace storm {
             STORM_LOG_ASSERT(bounds.second->isSymbolicQuantitativeCheckResult(), "Expected symbolic quantitative check result.");
             storm::modelchecker::SymbolicQuantitativeCheckResult<DdType, ValueType> const& upperBounds = bounds.second->asSymbolicQuantitativeCheckResult<DdType, ValueType>();
             
-            return std::make_unique<storm::modelchecker::SymbolicQuantitativeCheckResult<DdType, ValueType>>(lowerBounds.getReachableStates(), lowerBounds.getStates(), (lowerBounds.getValueVector() + upperBounds.getValueVector()) / lowerBounds.getValueVector().getDdManager().getConstant(storm::utility::convertNumber<ValueType>(std::string("2.0"))));
+            return std::make_unique<storm::modelchecker::SymbolicQuantitativeCheckResult<DdType, ValueType>>(lowerBounds.getReachableStates(), lowerBounds.getRowVariables(), lowerBounds.getStates(), (lowerBounds.getValueVector() + upperBounds.getValueVector()) / lowerBounds.getValueVector().getDdManager().getConstant(storm::utility::convertNumber<ValueType>(std::string("2.0"))));
         }
 
         template class AbstractAbstractionRefinementModelChecker<storm::models::symbolic::Dtmc<storm::dd::DdType::CUDD, double>>;

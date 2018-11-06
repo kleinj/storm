@@ -13,18 +13,18 @@
 namespace storm {
     namespace modelchecker {
         template<storm::dd::DdType Type, typename ValueType>
-        SymbolicQuantitativeCheckResult<Type, ValueType>::SymbolicQuantitativeCheckResult(storm::dd::Bdd<Type> const& reachableStates, storm::dd::Add<Type, ValueType> const& values) : reachableStates(reachableStates), states(reachableStates), values(values) {
+        SymbolicQuantitativeCheckResult<Type, ValueType>::SymbolicQuantitativeCheckResult(storm::dd::Bdd<Type> const& reachableStates, std::set<storm::expressions::Variable> const& rowVariables, storm::dd::Add<Type, ValueType> const& values) : reachableStates(reachableStates), states(reachableStates), values(values), rowVariables(rowVariables) {
             // Intentionally left empty.
         }
         
         template<storm::dd::DdType Type, typename ValueType>
-        SymbolicQuantitativeCheckResult<Type, ValueType>::SymbolicQuantitativeCheckResult(storm::dd::Bdd<Type> const& reachableStates, storm::dd::Bdd<Type> const& states, storm::dd::Add<Type, ValueType> const& values) : reachableStates(reachableStates), states(states), values(values) {
+        SymbolicQuantitativeCheckResult<Type, ValueType>::SymbolicQuantitativeCheckResult(storm::dd::Bdd<Type> const& reachableStates, std::set<storm::expressions::Variable> const& rowVariables, storm::dd::Bdd<Type> const& states, storm::dd::Add<Type, ValueType> const& values) : reachableStates(reachableStates), states(states), values(values), rowVariables(rowVariables) {
             // Intentionally left empty.
         }
         
         template<storm::dd::DdType Type, typename ValueType>
         std::unique_ptr<CheckResult> SymbolicQuantitativeCheckResult<Type, ValueType>::clone() const {
-            return std::make_unique<SymbolicQuantitativeCheckResult<Type, ValueType>>(this->reachableStates, this->states, this->values);
+            return std::make_unique<SymbolicQuantitativeCheckResult<Type, ValueType>>(this->reachableStates, this->rowVariables, this->states, this->values);
         }
         
         template<storm::dd::DdType Type, typename ValueType>
@@ -70,6 +70,11 @@ namespace storm {
         template<storm::dd::DdType Type, typename ValueType>
         storm::dd::Bdd<Type> const& SymbolicQuantitativeCheckResult<Type, ValueType>::getReachableStates() const {
             return reachableStates;
+        }
+
+        template<storm::dd::DdType Type, typename ValueType>
+        std::set<storm::expressions::Variable> const& SymbolicQuantitativeCheckResult<Type, ValueType>::getRowVariables() const {
+            return rowVariables;
         }
         
         template<typename ValueType>

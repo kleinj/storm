@@ -5,6 +5,7 @@
 #include "storm/storage/dd/Add.h"
 #include "storm/modelchecker/results/QuantitativeCheckResult.h"
 #include "storm/utility/OsDetection.h"
+#include <set>
 
 namespace storm {
     namespace modelchecker {
@@ -12,8 +13,8 @@ namespace storm {
         class SymbolicQuantitativeCheckResult : public QuantitativeCheckResult<ValueType> {
         public:
             SymbolicQuantitativeCheckResult() = default;
-            SymbolicQuantitativeCheckResult(storm::dd::Bdd<Type> const& reachableStates, storm::dd::Add<Type, ValueType> const& values);
-            SymbolicQuantitativeCheckResult(storm::dd::Bdd<Type> const& reachableStates, storm::dd::Bdd<Type> const& states, storm::dd::Add<Type, ValueType> const& values);
+            SymbolicQuantitativeCheckResult(storm::dd::Bdd<Type> const& reachableStates, std::set<storm::expressions::Variable> const& rowVariables, storm::dd::Add<Type, ValueType> const& values);
+            SymbolicQuantitativeCheckResult(storm::dd::Bdd<Type> const& reachableStates, std::set<storm::expressions::Variable> const& rowVariables, storm::dd::Bdd<Type> const& states, storm::dd::Add<Type, ValueType> const& values);
             
             SymbolicQuantitativeCheckResult(SymbolicQuantitativeCheckResult const& other) = default;
             SymbolicQuantitativeCheckResult& operator=(SymbolicQuantitativeCheckResult const& other) = default;
@@ -34,6 +35,7 @@ namespace storm {
             storm::dd::Add<Type, ValueType> const& getValueVector() const;
             storm::dd::Bdd<Type> const& getStates() const;
             storm::dd::Bdd<Type> const& getReachableStates() const;
+            std::set<storm::expressions::Variable> const& getRowVariables() const;
 
             virtual std::ostream& writeToStream(std::ostream& out) const override;
             
@@ -56,6 +58,9 @@ namespace storm {
             
             // The values of the quantitative check result.
             storm::dd::Add<Type, ValueType> values;
+
+            // The row variables in the model
+            std::set<storm::expressions::Variable> rowVariables;
         };
     }
 }
