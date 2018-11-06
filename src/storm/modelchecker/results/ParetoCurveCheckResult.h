@@ -23,6 +23,7 @@ namespace storm {
             polytope_type const& getOverApproximation() const;
             
             virtual std::ostream& writeToStream(std::ostream& out) const override;
+            virtual std::ostream& writeAsSparseVectorToStream(std::ostream& out) const override;
 
         protected:
             ParetoCurveCheckResult(std::vector<point_type> const& points, polytope_type const& underApproximation, polytope_type const& overApproximation);

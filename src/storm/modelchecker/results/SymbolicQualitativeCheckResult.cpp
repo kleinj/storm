@@ -95,7 +95,12 @@ namespace storm {
             }
             return out;
         }
-        
+
+        template <storm::dd::DdType Type>
+        std::ostream& SymbolicQualitativeCheckResult<Type>::writeAsSparseVectorToStream(std::ostream& out) const {
+            STORM_LOG_THROW(false, storm::exceptions::InvalidOperationException, "Can not yet print symbolic qualitative results as vector.");
+        }
+
         template <storm::dd::DdType Type>
         void SymbolicQualitativeCheckResult<Type>::filter(QualitativeCheckResult const& filter) {
             STORM_LOG_THROW(filter.isSymbolicQualitativeCheckResult(), storm::exceptions::InvalidOperationException, "Cannot filter symbolic check result with non-symbolic filter.");

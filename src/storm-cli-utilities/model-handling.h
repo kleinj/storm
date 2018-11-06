@@ -497,6 +497,9 @@ namespace storm {
             if (result->isQuantitative()) {
                 if (ft == storm::modelchecker::FilterType::VALUES) {
                     STORM_PRINT(*result);
+                } else if (ft == storm::modelchecker::FilterType::PRINT) {
+                    result->writeAsSparseVectorToStream(std::cout);
+                    STORM_PRINT(std::endl);
                 } else {
                     ValueType resultValue;
                     switch (ft) {
@@ -533,6 +536,10 @@ namespace storm {
                     case storm::modelchecker::FilterType::VALUES:
                         STORM_PRINT(*result << std::endl);
                         break;
+                    case storm::modelchecker::FilterType::PRINT:
+                        STORM_PRINT("Satisfying states for filter:\n");
+                        result->writeAsSparseVectorToStream(std::cout);
+                        break;
                     case storm::modelchecker::FilterType::EXISTS:
                         STORM_PRINT(result->asQualitativeCheckResult().existsTrue());
                         break;
@@ -564,7 +571,15 @@ namespace storm {
             if (result) {
                 std::stringstream ss;
                 ss << "'" << *property.getFilter().getStatesFormula() << "'";
-                STORM_PRINT("Result (for " << (property.getFilter().getStatesFormula()->isInitialFormula() ? "initial" : ss.str()) << " states): ");
+                if (property.getFilter().getFilterType() == storm::modelchecker::FilterType::PRINT) {
+                    if (result->isQuantitative()) {
+                        STORM_PRINT("Result (for " << (property.getFilter().getStatesFormula()->isInitialFormula() ? "initial" : ss.str()) << " states, non-zero only):\n");
+                    } else {
+                        STORM_PRINT("Satisfying states (for " << (property.getFilter().getStatesFormula()->isInitialFormula() ? "initial" : ss.str()) << " states):\n");
+                    }
+                } else {
+                    STORM_PRINT("Result (for " << (property.getFilter().getStatesFormula()->isInitialFormula() ? "initial" : ss.str()) << " states): ");
+                }
                 printFilteredResult<ValueType>(result, property.getFilter().getFilterType());
                 if (watch) {
                     STORM_PRINT("Time for model checking: " << *watch << "." << std::endl);

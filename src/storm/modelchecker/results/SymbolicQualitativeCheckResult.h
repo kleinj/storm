@@ -42,9 +42,10 @@ namespace storm {
             storm::dd::Bdd<Type> const& getTruthValuesVector() const;
             
             virtual std::ostream& writeToStream(std::ostream& out) const override;
-            
+            virtual std::ostream& writeAsSparseVectorToStream(std::ostream& out) const override;
+
             virtual void filter(QualitativeCheckResult const& filter) override;
-            
+
         private:
             // The set of all reachable states.
             storm::dd::Bdd<Type> reachableStates;

@@ -206,7 +206,11 @@ namespace storm {
             }
             return out;
         }
-        
+
+        std::ostream& ExplicitQualitativeCheckResult::writeAsSparseVectorToStream(std::ostream& out) const {
+            STORM_LOG_THROW(false, storm::exceptions::InvalidOperationException, "Can not yet print explicit qualitative results as vector.");
+        }
+      
         void ExplicitQualitativeCheckResult::filter(QualitativeCheckResult const& filter) {
             STORM_LOG_THROW(filter.isExplicitQualitativeCheckResult(), storm::exceptions::InvalidOperationException, "Cannot filter explicit check result with non-explicit filter.");
             STORM_LOG_THROW(filter.isResultForAllStates(), storm::exceptions::InvalidOperationException, "Cannot filter check result with non-complete filter.");

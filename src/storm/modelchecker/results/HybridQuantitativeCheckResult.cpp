@@ -195,7 +195,12 @@ namespace storm {
             }
             return out;
         }
-        
+
+        template<storm::dd::DdType Type, typename ValueType>
+        std::ostream& HybridQuantitativeCheckResult<Type, ValueType>::writeAsSparseVectorToStream(std::ostream& out) const {
+            STORM_LOG_THROW(false, storm::exceptions::InvalidOperationException, "Can not yet print hybrid quantitative results as vector.");
+        }
+
         template<storm::dd::DdType Type, typename ValueType>
         void HybridQuantitativeCheckResult<Type, ValueType>::filter(QualitativeCheckResult const& filter) {
             STORM_LOG_THROW(filter.isSymbolicQualitativeCheckResult(), storm::exceptions::InvalidOperationException, "Cannot filter hybrid check result with non-symbolic filter.");

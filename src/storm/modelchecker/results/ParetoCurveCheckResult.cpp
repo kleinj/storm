@@ -2,6 +2,7 @@
 
 #include "storm/adapters/RationalFunctionAdapter.h"
 #include "storm/utility/vector.h"
+#include "storm/exceptions/InvalidOperationException.h"
 
 namespace storm {
     namespace modelchecker {
@@ -59,7 +60,12 @@ namespace storm {
             }
             return out;
         }
-        
+
+        template<typename ValueType>
+        std::ostream& ParetoCurveCheckResult<ValueType>::writeAsSparseVectorToStream(std::ostream& out) const {
+            STORM_LOG_THROW(false, storm::exceptions::InvalidOperationException, "Can not yet print explicit qualitative results as vector.");
+        }
+      
         template class ParetoCurveCheckResult<double>;
         
 #ifdef STORM_HAVE_CARL

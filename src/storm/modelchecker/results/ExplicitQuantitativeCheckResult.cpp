@@ -294,7 +294,40 @@ namespace storm {
             
             return out;
         }
-        
+
+        template<typename ValueType>
+        std::ostream& ExplicitQuantitativeCheckResult<ValueType>::writeAsSparseVectorToStream(std::ostream& out) const {
+            bool hadOutput = false;
+            if (this->isResultForAllStates()) {
+                vector_type const& valuesAsVector = boost::get<vector_type>(values);
+
+                for (std::size_t i = 0; i < valuesAsVector.size(); i++) {
+                    auto const& value = valuesAsVector[i];
+                    if (storm::utility::isZero(value))
+                        continue;
+                    out << i << "=";
+                    print(out, value);
+                    out << "\n";
+                    hadOutput = true;
+                }
+            } else {
+                map_type const& valuesAsMap = boost::get<map_type>(values);
+                for (auto const& element : valuesAsMap) {
+                    if (storm::utility::isZero(element.second))
+                        continue;
+                    out << element.first << "=";
+                    print(out, element.second);
+                    out << "\n";
+                    hadOutput = true;
+                }
+            }
+
+            if (!hadOutput) {
+                out << "(all zero)\n";
+            }
+            return out;
+        }
+      
         template<typename ValueType>
         std::unique_ptr<CheckResult> ExplicitQuantitativeCheckResult<ValueType>::compareAgainstBound(storm::logic::ComparisonType comparisonType, ValueType const& bound) const {
             if (this->isResultForAllStates()) {

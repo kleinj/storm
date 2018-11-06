@@ -125,7 +125,8 @@ namespace storm {
                     ("exists", storm::modelchecker::FilterType::EXISTS)
                     ("argmin", storm::modelchecker::FilterType::ARGMIN)
                     ("argmax", storm::modelchecker::FilterType::ARGMAX)
-                    ("values", storm::modelchecker::FilterType::VALUES);
+                    ("values", storm::modelchecker::FilterType::VALUES)
+                    ("print", storm::modelchecker::FilterType::PRINT);
                 }
             };
 

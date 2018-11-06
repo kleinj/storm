@@ -26,6 +26,8 @@ namespace storm {
                     return "the sum";
                 case FilterType::VALUES:
                     return "the values";
+                case FilterType::PRINT:
+                    return "printing";
             }
         }
     }

@@ -158,7 +158,21 @@ namespace storm {
             }
             return out;
         }
-        
+
+        template<storm::dd::DdType Type, typename ValueType>
+        std::ostream& SymbolicQuantitativeCheckResult<Type, ValueType>::writeAsSparseVectorToStream(std::ostream& out) const {
+            if (this->values.isZero()) {
+                out << "(all zero)\n";
+            } else {
+                for (auto valuationValuePair : this->values) {
+                    out << valuationValuePair.first.toPrettyString(getRowVariables()) << "=";
+                    print(out, valuationValuePair.second);
+                    out << "\n";
+                }
+            }
+            return out;
+        }
+
         template<storm::dd::DdType Type, typename ValueType>
         void SymbolicQuantitativeCheckResult<Type, ValueType>::filter(QualitativeCheckResult const& filter) {
             STORM_LOG_THROW(filter.isSymbolicQualitativeCheckResult(), storm::exceptions::InvalidOperationException, "Cannot filter symbolic check result with non-symbolic filter.");

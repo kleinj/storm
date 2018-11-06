@@ -53,6 +53,7 @@ namespace storm {
             map_type const& getValueMap() const;
             
             virtual std::ostream& writeToStream(std::ostream& out) const override;
+            virtual std::ostream& writeAsSparseVectorToStream(std::ostream& out) const override;
 
             virtual void filter(QualitativeCheckResult const& filter) override;
 
