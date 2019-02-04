@@ -31,8 +31,8 @@ namespace storm {
         }
         
         template<typename RationalFunctionType>
-        boost::any ToRationalFunctionVisitor<RationalFunctionType>::visit(BinaryBooleanFunctionExpression const&, boost::any const&) {
-            STORM_LOG_THROW(false, storm::exceptions::InvalidArgumentException, "Expression cannot be translated into a rational function.");
+        boost::any ToRationalFunctionVisitor<RationalFunctionType>::visit(BinaryBooleanFunctionExpression const& expression, boost::any const&) {
+	  STORM_LOG_THROW(false, storm::exceptions::InvalidArgumentException, "Expression cannot be translated into a rational function: " << expression);
         }
         
         template<typename RationalFunctionType>
@@ -59,7 +59,7 @@ namespace storm {
                     return storm::utility::pow(firstOperandAsRationalFunction, exponentAsInteger);
                     break;
                 default:
-                    STORM_LOG_ASSERT(false, "Illegal operator type.");
+		  STORM_LOG_THROW(false, storm::exceptions::InvalidArgumentException, "Expression cannot be translated into a rational function: " << expression);
             }
             
             // Return a dummy. This point must, however, never be reached.
@@ -67,8 +67,8 @@ namespace storm {
         }
         
         template<typename RationalFunctionType>
-        boost::any ToRationalFunctionVisitor<RationalFunctionType>::visit(BinaryRelationExpression const&, boost::any const&) {
-            STORM_LOG_THROW(false, storm::exceptions::InvalidArgumentException, "Expression cannot be translated into a rational function.");
+        boost::any ToRationalFunctionVisitor<RationalFunctionType>::visit(BinaryRelationExpression const& expression, boost::any const&) {
+	  STORM_LOG_THROW(false, storm::exceptions::InvalidArgumentException, "Expression cannot be translated into a rational function: " << expression);
         }
         
         template<typename RationalFunctionType>
@@ -89,8 +89,8 @@ namespace storm {
         }
         
         template<typename RationalFunctionType>
-        boost::any ToRationalFunctionVisitor<RationalFunctionType>::visit(UnaryBooleanFunctionExpression const&, boost::any const&) {
-            STORM_LOG_THROW(false, storm::exceptions::InvalidArgumentException, "Expression cannot be translated into a rational function.");
+        boost::any ToRationalFunctionVisitor<RationalFunctionType>::visit(UnaryBooleanFunctionExpression const& expression, boost::any const&) {
+	  STORM_LOG_THROW(false, storm::exceptions::InvalidArgumentException, "Expression cannot be translated into a rational function: " << expression);
         }
         
         template<typename RationalFunctionType>
@@ -100,14 +100,14 @@ namespace storm {
                 case UnaryNumericalFunctionExpression::OperatorType::Minus:
                     return -operandAsRationalFunction;
                 default:
-                    STORM_LOG_THROW(false, storm::exceptions::InvalidArgumentException, "Expression cannot be translated into a rational function.");
+		  STORM_LOG_THROW(false, storm::exceptions::InvalidArgumentException, "Expression cannot be translated into a rational function: " << expression);
             }
             return boost::any();
         }
         
         template<typename RationalFunctionType>
-        boost::any ToRationalFunctionVisitor<RationalFunctionType>::visit(BooleanLiteralExpression const&, boost::any const&) {
-            STORM_LOG_THROW(false, storm::exceptions::InvalidArgumentException, "Expression cannot be translated into a rational function.");
+        boost::any ToRationalFunctionVisitor<RationalFunctionType>::visit(BooleanLiteralExpression const& expression, boost::any const&) {
+	  STORM_LOG_THROW(false, storm::exceptions::InvalidArgumentException, "Expression cannot be translated into a rational function: " << expression);
         }
         
         template<typename RationalFunctionType>
