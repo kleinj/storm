@@ -49,11 +49,31 @@ namespace storm {
                     return firstOperandAsRationalFunction * secondOperandAsRationalFunction;
                 case BinaryNumericalFunctionExpression::OperatorType::Divide:
                     return firstOperandAsRationalFunction / secondOperandAsRationalFunction;
+	    case BinaryNumericalFunctionExpression::OperatorType::Min:
+	      if (firstOperandAsRationalFunction.isConstant() && secondOperandAsRationalFunction.isConstant()) {
+		return RationalFunctionType(storm::utility::min(firstOperandAsRationalFunction.constantPart(), secondOperandAsRationalFunction.constantPart()));
+	      } else {
+		STORM_LOG_THROW(false, storm::exceptions::InvalidArgumentException, "Expression cannot be translated into a rational function: " << expression);
+	      }
+	    case BinaryNumericalFunctionExpression::OperatorType::Max:
+	      if (firstOperandAsRationalFunction.isConstant() && secondOperandAsRationalFunction.isConstant()) {
+		return RationalFunctionType(storm::utility::max(firstOperandAsRationalFunction.constantPart(), secondOperandAsRationalFunction.constantPart()));
+	      } else {
+		STORM_LOG_THROW(false, storm::exceptions::InvalidArgumentException, "Expression cannot be translated into a rational function: " << expression);
+	      }
                 case BinaryNumericalFunctionExpression::OperatorType::Power:
                     STORM_LOG_THROW(storm::utility::isInteger(secondOperandAsRationalFunction), storm::exceptions::InvalidArgumentException, "Exponent of power operator must be a positive integer.");
                     exponentAsInteger = storm::utility::convertNumber<uint_fast64_t>(secondOperandAsRationalFunction);
                     return storm::utility::pow(firstOperandAsRationalFunction, exponentAsInteger);
-                default:
+	    case BinaryNumericalFunctionExpression::OperatorType::Modulo:
+	      if (firstOperandAsRationalFunction.isConstant() && secondOperandAsRationalFunction.isConstant() &&
+		  storm::utility::isInteger(firstOperandAsRationalFunction) && storm::utility::isInteger(secondOperandAsRationalFunction)) {
+		return RationalFunctionType(storm::utility::mod(storm::utility::trunc(firstOperandAsRationalFunction.constantPart()), storm::utility::trunc(secondOperandAsRationalFunction.constantPart())));
+	      } else {
+		STORM_LOG_THROW(false, storm::exceptions::InvalidArgumentException, "Expression cannot be translated into a rational function: " << expression);
+	      }
+
+	    default:
 		  STORM_LOG_THROW(false, storm::exceptions::InvalidArgumentException, "Expression cannot be translated into a rational function: " << expression);
             }
             
@@ -94,6 +114,18 @@ namespace storm {
             switch (expression.getOperatorType()) {
                 case UnaryNumericalFunctionExpression::OperatorType::Minus:
                     return -operandAsRationalFunction;
+	    case UnaryNumericalFunctionExpression::OperatorType::Floor:
+	      if (operandAsRationalFunction.isConstant()) {
+		return RationalFunctionType(storm::utility::floor(operandAsRationalFunction.constantPart()));
+	      } else {
+		STORM_LOG_THROW(false, storm::exceptions::InvalidArgumentException, "Expression cannot be translated into a rational function: " << expression);
+	      }
+	    case UnaryNumericalFunctionExpression::OperatorType::Ceil:
+	      if (operandAsRationalFunction.isConstant()) {
+		return RationalFunctionType(storm::utility::ceil(operandAsRationalFunction.constantPart()));
+	      } else {
+		STORM_LOG_THROW(false, storm::exceptions::InvalidArgumentException, "Expression cannot be translated into a rational function: " << expression);
+	      }
                 default:
 		  STORM_LOG_THROW(false, storm::exceptions::InvalidArgumentException, "Expression cannot be translated into a rational function: " << expression);
             }
