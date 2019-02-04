@@ -43,21 +43,16 @@ namespace storm {
             switch(expression.getOperatorType()) {
                 case BinaryNumericalFunctionExpression::OperatorType::Plus:
                     return firstOperandAsRationalFunction + secondOperandAsRationalFunction;
-                    break;
                 case BinaryNumericalFunctionExpression::OperatorType::Minus:
                     return firstOperandAsRationalFunction - secondOperandAsRationalFunction;
-                    break;
                 case BinaryNumericalFunctionExpression::OperatorType::Times:
                     return firstOperandAsRationalFunction * secondOperandAsRationalFunction;
-                    break;
                 case BinaryNumericalFunctionExpression::OperatorType::Divide:
                     return firstOperandAsRationalFunction / secondOperandAsRationalFunction;
-                    break;
                 case BinaryNumericalFunctionExpression::OperatorType::Power:
                     STORM_LOG_THROW(storm::utility::isInteger(secondOperandAsRationalFunction), storm::exceptions::InvalidArgumentException, "Exponent of power operator must be a positive integer.");
                     exponentAsInteger = storm::utility::convertNumber<uint_fast64_t>(secondOperandAsRationalFunction);
                     return storm::utility::pow(firstOperandAsRationalFunction, exponentAsInteger);
-                    break;
                 default:
 		  STORM_LOG_THROW(false, storm::exceptions::InvalidArgumentException, "Expression cannot be translated into a rational function: " << expression);
             }
