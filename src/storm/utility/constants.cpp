@@ -275,6 +275,11 @@ namespace storm {
         IntegerType mod(IntegerType const& first, IntegerType const& second) {
             return std::fmod(first, second);
         }
+
+        template<>
+        int mod(int const& first, int const& second) {
+            return first % second;
+        }
         
         template<typename IntegerType>
         std::pair<IntegerType, IntegerType> divide(IntegerType const& dividend, IntegerType const& divisor) {
@@ -929,6 +934,7 @@ namespace storm {
         template bool isZero(int const& value);
         template bool isConstant(int const& value);
         template bool isInfinity(int const& value);
+        template int mod(int const& first, int const& second);
 
         // uint32_t
         template uint32_t one();
